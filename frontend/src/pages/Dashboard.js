@@ -1,44 +1,107 @@
-import Layout from '../components/Layout'
-import { useAuth } from '../contexts/AuthContext'
+import React from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
-export default function Dashboard() {
-  const { profile } = useAuth()
+function Dashboard() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
 
   return (
-    <Layout>
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-2xl font-semibold mb-4">
-          Welcome, {profile?.full_name || 'User'}!
-        </h2>
-        <p className="text-gray-600 mb-6">
-          Your dashboard is ready. Let's build amazing things together.
-        </p>
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="bg-white rounded-lg shadow-sm p-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-4">
+            Welcome to Contract Diary Platform
+          </h1>
+          
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
+            <h2 className="text-xl font-semibold text-blue-900 mb-2">
+              👤 Your Profile
+            </h2>
+            <p className="text-gray-700">
+              <strong>Email:</strong> {user?.email}
+            </p>
+            <p className="text-gray-700">
+              <strong>Role:</strong> {user?.user_metadata?.role || 'User'}
+            </p>
+            <p className="text-gray-700">
+              <strong>User ID:</strong> {user?.id}
+            </p>
+          </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-blue-50 p-4 rounded-lg">
-            <p className="text-sm text-blue-600 font-medium">Active Contracts</p>
-            <p className="text-2xl font-bold text-blue-900">0</p>
-          </div>
-          <div className="bg-green-50 p-4 rounded-lg">
-            <p className="text-sm text-green-600 font-medium">Pending Diaries</p>
-            <p className="text-2xl font-bold text-green-900">0</p>
-          </div>
-          <div className="bg-yellow-50 p-4 rounded-lg">
-            <p className="text-sm text-yellow-600 font-medium">Claims This Month</p>
-            <p className="text-2xl font-bold text-yellow-900">0</p>
-          </div>
-        </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Contracts Card */}
+            <div className="border-2 border-gray-200 rounded-lg p-6 hover:border-blue-500 transition-colors">
+              <div className="text-4xl mb-3">📄</div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                Contracts
+              </h3>
+              <p className="text-gray-600 text-sm mb-4">
+                Manage your construction contracts and track progress
+              </p>
+              <button
+                onClick={() => navigate('/contracts')}
+                className="inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                View Contracts
+              </button>
+            </div>
 
-        {/* Quick Info */}
-        <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-          <h3 className="font-semibold mb-2">Account Info</h3>
-          <div className="text-sm text-gray-600">
-            <p>Email: {profile?.email}</p>
-            <p>Role: {profile?.role?.replace('_', ' ').toUpperCase()}</p>
+            {/* Daily Diaries Card */}
+            <div className="border-2 border-gray-200 rounded-lg p-6 opacity-50">
+              <div className="text-4xl mb-3">📝</div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                Daily Diaries
+              </h3>
+              <p className="text-gray-600 text-sm mb-4">
+                Record daily work progress and activities
+              </p>
+              <button
+                disabled
+                className="inline-block px-4 py-2 bg-gray-300 text-gray-500 rounded-lg cursor-not-allowed"
+              >
+                Coming Soon
+              </button>
+            </div>
+
+            {/* Progress Claims Card */}
+            <div className="border-2 border-gray-200 rounded-lg p-6 opacity-50">
+              <div className="text-4xl mb-3">💰</div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                Progress Claims
+              </h3>
+              <p className="text-gray-600 text-sm mb-4">
+                Generate and submit payment claims
+              </p>
+              <button
+                disabled
+                className="inline-block px-4 py-2 bg-gray-300 text-gray-500 rounded-lg cursor-not-allowed"
+              >
+                Coming Soon
+              </button>
+            </div>
+
+            {/* Reports Card */}
+            <div className="border-2 border-gray-200 rounded-lg p-6 opacity-50">
+              <div className="text-4xl mb-3">📊</div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                Reports
+              </h3>
+              <p className="text-gray-600 text-sm mb-4">
+                View project analytics and insights
+              </p>
+              <button
+                disabled
+                className="inline-block px-4 py-2 bg-gray-300 text-gray-500 rounded-lg cursor-not-allowed"
+              >
+                Coming Soon
+              </button>
+            </div>
           </div>
         </div>
       </div>
-    </Layout>
-  )
+    </div>
+  );
 }
+
+export default Dashboard;
