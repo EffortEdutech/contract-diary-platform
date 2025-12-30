@@ -494,6 +494,7 @@ export const updateBOQItem = async (itemId, updates) => {
         unit: updates.unit,
         quantity: updates.quantity,
         unit_rate: updates.unit_rate,
+        section_id: updates.section_id !== undefined ? updates.section_id : null, // ← FIX: Include section_id
         specifications: updates.specifications,
         notes: updates.notes,
         display_order: updates.display_order,
@@ -538,6 +539,124 @@ export const deleteBOQItem = async (itemId) => {
     return { success: false, error: error.message };
   }
 };
+
+
+// =====================================================
+// SECTION HELPER FUNCTIONS (NEW)
+// =====================================================
+
+/**
+ * Get all sections for a BOQ
+ * @param {string} boqId - BOQ UUID
+ * @returns {Array} List of sections ordered by display_order
+ */
+export const getBOQSections = async (boqId) => {
+  try {
+    const { data, error } = await supabase
+      .from('boq_sections')
+      .select('*')
+      .eq('boq_id', boqId)
+      .order('display_order', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching sections:', error);
+      throw error;
+    }
+
+    return { success: true, data: data || [] };
+  } catch (error) {
+    console.error('Get sections error:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+/**
+ * Get all items in a specific section
+ * @param {string} sectionId - Section UUID
+ * @returns {Array} List of items in the section
+ */
+export const getItemsBySection = async (sectionId) => {
+  try {
+    const { data, error } = await supabase
+      .from('boq_items')
+      .select('*')
+      .eq('section_id', sectionId)
+      .order('display_order', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching items by section:', error);
+      throw error;
+    }
+
+    return { success: true, data: data || [] };
+  } catch (error) {
+    console.error('Get items by section error:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+/**
+ * Move item to a different section (or remove from section)
+ * @param {string} itemId - Item UUID
+ * @param {string|null} sectionId - Target section UUID (null to remove from section)
+ * @returns {Object} Updated item
+ */
+export const moveItemToSection = async (itemId, sectionId) => {
+  try {
+    const { data, error } = await supabase
+      .from('boq_items')
+      .update({
+        section_id: sectionId,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', itemId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error moving item to section:', error);
+      throw error;
+    }
+
+    return { success: true, data };
+  } catch (error) {
+    console.error('Move item error:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+/**
+ * Reorder sections in a BOQ
+ * @param {Array} sectionOrders - Array of {id, display_order} objects
+ * @returns {Object} Success status
+ */
+export const reorderSections = async (sectionOrders) => {
+  try {
+    // Update each section's display_order
+    const updates = sectionOrders.map(({ id, display_order }) =>
+      supabase
+        .from('boq_sections')
+        .update({ display_order, updated_at: new Date().toISOString() })
+        .eq('id', id)
+    );
+
+    // Execute all updates
+    const results = await Promise.all(updates);
+
+    // Check for errors
+    const errors = results.filter(r => r.error);
+    if (errors.length > 0) {
+      console.error('Error reordering sections:', errors);
+      throw new Error('Failed to reorder sections');
+    }
+
+    return { success: true, message: 'Sections reordered successfully' };
+  } catch (error) {
+    console.error('Reorder sections error:', error);
+    return { success: false, error: error.message };
+  }
+};
+
 
 // =====================================================
 // BOQ CALCULATIONS & SST
@@ -772,6 +891,10 @@ export default {
   createBOQSection,
   updateBOQSection,
   deleteBOQSection,
+  getBOQSections,          // ← ADD THIS
+  getItemsBySection,       // ← ADD THIS
+  moveItemToSection,       // ← ADD THIS
+  reorderSections,         // ← ADD THIS
   
   // Item operations
   createBOQItem,
