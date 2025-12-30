@@ -567,9 +567,15 @@ export const calculateBOQSummary = async (boqId, sstRate = 6) => {
         data: {
           subtotal: 0,
           sst: 0,
-          total: 0,
-          itemCount: 0,
-          byType: {}
+          grandTotal: 0,
+          totalItems: 0,
+          totalQuantity: 0,
+          byType: {
+            material: 0,
+            labor: 0,
+            equipment: 0,
+            subcontractor: 0
+          }
         }
       };
     }
@@ -583,10 +589,14 @@ export const calculateBOQSummary = async (boqId, sstRate = 6) => {
     };
 
     let subtotal = 0;
+    let totalQuantity = 0;
 
     items.forEach(item => {
-      const amount = parseFloat(item.quantity) * parseFloat(item.unit_rate);
+      const amount = parseFloat(item.amount || 0);  // Use database-calculated amount
+      const quantity = parseFloat(item.quantity || 0);
+      
       subtotal += amount;
+      totalQuantity += quantity;
       
       if (byType.hasOwnProperty(item.item_type)) {
         byType[item.item_type] += amount;
@@ -596,7 +606,7 @@ export const calculateBOQSummary = async (boqId, sstRate = 6) => {
     // Calculate SST (only on materials in Malaysia)
     const materialAmount = byType.material;
     const sst = (materialAmount * sstRate) / 100;
-    const total = subtotal + sst;
+    const grandTotal = subtotal + sst;
 
     return {
       success: true,
@@ -604,8 +614,9 @@ export const calculateBOQSummary = async (boqId, sstRate = 6) => {
         subtotal: parseFloat(subtotal.toFixed(2)),
         sst: parseFloat(sst.toFixed(2)),
         sstRate: sstRate,
-        total: parseFloat(total.toFixed(2)),
-        itemCount: items.length,
+        grandTotal: parseFloat(grandTotal.toFixed(2)),  // Changed from 'total'
+        totalItems: items.length,  // Changed from 'itemCount'
+        totalQuantity: parseFloat(totalQuantity.toFixed(3)),  // Added this field
         byType: {
           material: parseFloat(byType.material.toFixed(2)),
           labor: parseFloat(byType.labor.toFixed(2)),
