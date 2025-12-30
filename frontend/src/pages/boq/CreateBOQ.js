@@ -101,7 +101,7 @@ function CreateBOQ() {
 
       if (result.success) {
         // Navigate to the new BOQ details page
-        navigate(`/boq/${result.data.id}`);
+        navigate(`/contracts/${contractId}/boq/${result.data.id}`);
       } else {
         setError(result.error);
       }

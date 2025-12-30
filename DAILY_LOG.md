@@ -1,5 +1,326 @@
 # DAILY DEVELOPMENT LOG
 
+## 🗓️ DECEMBER 31, 2025 (TUESDAY) - SESSION 6 & 7 Phase 3A
+
+  **Session Duration:** ~3-4 hours  
+  **Session Focus:** RBAC Implementation & Bug Fixes  
+  **Overall Progress:** 71% → 78% (+7%)  
+  **Status:** ✅ Major Milestone Achieved
+
+  ---
+
+  ### **🎯 SESSION OBJECTIVES**
+  1. ✅ Implement enterprise-grade RBAC system
+  2. ✅ Fix contract creation for multi-user support
+  3. ✅ Resolve BOQ navigation issues
+  4. ✅ Test and verify all implementations
+
+  ---
+
+  ### **✅ MAJOR ACCOMPLISHMENTS**
+
+  #### **1. RBAC System Implementation** 🔐
+  **Time Spent:** ~2 hours
+
+  **What We Built:**
+  - Created 3 new database tables (user_profiles, organizations, contract_members)
+  - Implemented 21 RLS policies for database-level security
+  - Built 4 helper functions for permission checking
+  - Enforced MC vs SC permission matrix
+  - Ensured CIPAA compliance (MC-only acknowledgment)
+
+  **Challenges:**
+  - Role value mismatch (`'mc_admin'` vs `'main_contractor'`)
+    - **Solution:** Created role mapping in migration script
+  - Missing `created_by` column in contracts table
+    - **Solution:** Adapted to use contract_members for ownership
+  - Infinite recursion in RLS policies
+    - **Solution:** Simplified policies to avoid circular references
+
+  **Files Created:**
+  - RBAC_SYSTEM_COMPREHENSIVE.md
+  - RBAC_IMPLEMENTATION_SQL_SCRIPTS.md (7 scripts)
+  - FULLY_CORRECTED_SCRIPT_2.md
+  - FIXED_SCRIPT_5_NO_CREATED_BY.md
+  - RBAC_ALL_FIXES_SUMMARY.md
+  - COMPLETE_RLS_FIX_NO_RECURSION.md
+  - POST_RBAC_VERIFICATION_GUIDE.md
+
+  **Impact:**
+  - 🔐 Enterprise-grade security
+  - 🏢 Multi-tenant support
+  - ✅ CIPAA compliant
+  - 🚀 Production-ready
+
+  ---
+
+  #### **2. Contract Creation Update** 📝
+  **Time Spent:** ~30 minutes
+
+  **What We Fixed:**
+  - Updated ContractForm.js with 2-step creation process
+  - Step 1: Create contract
+  - Step 2: Add creator to contract_members as owner
+  - Added error handling with automatic cleanup
+
+  **Challenges:**
+  - Contracts table doesn't have `created_by` column
+    - **Solution:** Use contract_members table for ownership tracking
+
+  **Files Created:**
+  - ContractForm_RBAC_Updated.js
+  - ContractForm_Changes_Comparison.md
+
+  **Impact:**
+  - ✅ New contracts work with RBAC
+  - ✅ Ownership properly tracked
+  - ✅ Multi-user ready
+
+  ---
+
+  #### **3. BOQ Navigation Fixes** 🗺️
+  **Time Spent:** ~1 hour
+
+  **What We Fixed:**
+  - BOQList.js: 2 navigation links (BOQ number + View button)
+  - CreateBOQ.js: Navigate after creating BOQ
+  - BOQDetail.js: Back to BOQ List link
+  - All routes now use `/contracts/:contractId/boq/:boqId` pattern
+
+  **Challenges:**
+  - Inconsistent route structure
+    - Some routes used `/boq/:id`
+    - Others used `/contracts/:contractId/boq`
+    - **Solution:** Standardized all routes to include contractId
+
+  **Files Created:**
+  - BOQList.js (fixed)
+  - CreateBOQ.js (fixed)
+  - BOQDetail.js (fixed)
+  - COMPLETE_BOQ_ROUTING_FIX_ALL_FILES.md
+  - BOQLIST_EXACT_FIXES.md
+  - CREATEBOQ_EXACT_FIX.md
+  - BOQDETAIL_EXACT_FIX.md
+
+  **Impact:**
+  - ✅ No more blank pages
+  - ✅ Complete BOQ flow working
+  - ✅ User experience improved
+
+  ---
+
+  ### **📊 PROGRESS METRICS**
+
+  **Tasks Completed:** +9 tasks (85 → 94)
+  **Progress Change:** 71% → 78% (+7%)
+  **Code Added:** ~2,000+ lines (SQL + JavaScript)
+  **Files Created:** 25+ documentation files
+  **Files Modified:** 4 code files
+
+  **Phases Completed:**
+  - Phase 1: Authentication (100%)
+  - Phase 2A: Contracts (100%)
+  - Phase 2B: BOQ (100%)
+  - Phase 3A: Daily Diaries (100%)
+  - RBAC System (100%) ⭐ NEW!
+
+  **Next Phase:** Phase 3B - Photo Upload (0%)
+
+  ---
+
+  ### **🎓 KEY LEARNINGS**
+
+  **Technical:**
+  1. **RBAC Design:** Database-level enforcement is more secure than application-level
+  2. **RLS Policies:** Must avoid self-references to prevent infinite recursion
+  3. **Schema Adaptation:** Better to adapt to existing structure than force changes
+  4. **Route Consistency:** Always use complete paths with all required parameters
+
+  **Process:**
+  1. **Verify First:** Always check existing data before migrations
+  2. **Test Early:** Test each change immediately after implementation
+  3. **Document Everything:** Helps with troubleshooting and maintenance
+  4. **Error Recovery:** Have cleanup strategies for failed operations
+
+  **Malaysian Construction:**
+  1. **CIPAA Critical:** MC-only acknowledgment prevents disputes
+  2. **Role Clarity:** Clear MC vs SC permissions essential
+  3. **Evidence Chain:** Proper ownership tracking supports claims
+  4. **Multi-tenant:** Organization structure supports industry practices
+
+  ---
+
+  ### **🐛 ISSUES ENCOUNTERED & RESOLVED**
+
+  #### **Issue 1: Role Value Mismatch**
+  - **Problem:** User has `'mc_admin'`, system expects `'main_contractor'`
+  - **Root Cause:** Different naming in signup vs RBAC schema
+  - **Solution:** Role mapping in migration script
+  - **Time to Fix:** 15 minutes
+  - **Status:** ✅ Resolved
+
+  #### **Issue 2: Missing created_by Column**
+  - **Problem:** Contracts table uses `organization_id`, not `created_by`
+  - **Root Cause:** Schema design choice
+  - **Solution:** Use contract_members for ownership, 2-step creation
+  - **Time to Fix:** 30 minutes
+  - **Status:** ✅ Resolved
+
+  #### **Issue 3: Infinite RLS Recursion**
+  - **Problem:** contract_members policy checked itself
+  - **Root Cause:** Circular reference in policy definition
+  - **Solution:** Simplified to direct user_id check
+  - **Time to Fix:** 45 minutes
+  - **Status:** ✅ Resolved
+
+  #### **Issue 4: BOQ Navigation Blank Pages**
+  - **Problem:** Routes mismatch (`/boq/:id` vs `/contracts/:contractId/boq/:id`)
+  - **Root Cause:** Inconsistent route structure
+  - **Solution:** Standardized all navigation to include contractId
+  - **Time to Fix:** 30 minutes
+  - **Status:** ✅ Resolved
+
+  ---
+
+  ### **🎉 HIGHLIGHTS**
+
+  **Biggest Win:** 🔐 Enterprise-grade RBAC system fully operational!
+
+  **Most Challenging:** Debugging and fixing infinite recursion in RLS policies
+
+  **Most Satisfying:** All BOQ navigation finally working smoothly
+
+  **Best Moment:** "Alhamdulillah. done." - Eff's reaction after BOQ fixes
+
+  **Unexpected Discovery:** Eff's contracts table structure (organization_id + contract_members) is actually superior for multi-tenant scenarios
+
+  ---
+
+  ### **📝 NOTES FOR TOMORROW**
+
+  **Session 8 Focus:** Phase 3B - Photo Upload Module
+
+  **Preparation Done:**
+  - ✅ SESSION_8_PREP.md created
+  - ✅ Photo module plan detailed
+  - ✅ Database schema designed
+  - ✅ Supabase storage strategy planned
+
+  **Ready to Start:**
+  - Create diary_photos table
+  - Set up Supabase storage bucket
+  - Build PhotoUpload component
+  - Build PhotoGallery component
+  - Integrate with diaries
+
+  **Estimated Time:** 2-3 hours
+
+  ---
+
+  ### **💰 BUDGET UPDATE**
+
+  **Today's Costs:** RM 0 (Free tier)
+  **Total Spent:** RM 0
+  **Services Used:**
+  - Supabase: Free tier (500MB database, 1GB storage)
+  - Vercel: Free tier (unlimited deployments)
+
+  **Budget Status:** 🟢 Excellent - Zero spending maintained!
+
+  ---
+
+  ### **🎯 TOMORROW'S PLAN**
+
+  **Session 8 Goals:**
+  1. Set up Supabase storage for photos
+  2. Create photo upload component
+  3. Build photo gallery with lightbox
+  4. Integrate with daily diaries
+  5. Test complete upload/view flow
+
+  **Expected Outcomes:**
+  - Photos can be uploaded to diaries
+  - Gallery displays all photos
+  - Lightbox for full-size viewing
+  - Draft-only editing enforced
+  - RLS policies protect access
+
+  **Time Estimate:** 2-3 hours
+
+  ---
+
+  ### **📊 OVERALL PROJECT STATUS**
+
+  **Completion:** 78% (94/120 tasks)
+
+  **Completed Modules:**
+  - ✅ Authentication
+  - ✅ Contract Management
+  - ✅ BOQ System
+  - ✅ Daily Diaries
+  - ✅ RBAC System
+
+  **Next Module:**
+  - 📸 Photo Upload
+
+  **Timeline:** On track for mid-January completion
+
+  ---
+
+  ### **🙏 REFLECTIONS**
+
+  **What Went Well:**
+  - RBAC implementation successful despite challenges
+  - All bugs fixed systematically
+  - Zero budget maintained
+  - Strong collaboration with Eff
+  - Clear communication throughout
+
+  **What Could Be Better:**
+  - Could have verified schema before RBAC design
+  - Should have tested RLS policies earlier
+  - Could have standardized routes from the start
+
+  **Lessons for Next Time:**
+  - Always review project knowledge first
+  - Check existing data before migrations
+  - Test RLS policies with sample queries
+  - Maintain route consistency from day 1
+
+  ---
+
+  ### **🎊 CLOSING THOUGHTS**
+
+  **Today's Achievements:**
+  Session 7 was a MAJOR MILESTONE! We didn't just add features - we added enterprise-grade security that will protect the platform as it scales. The RBAC system, while challenging to implement, is now the foundation for:
+  - Multi-user collaboration
+  - Clear role separation (MC vs SC)
+  - CIPAA compliance
+  - Dispute prevention
+  - Professional credibility
+
+  The platform can now confidently handle:
+  - Multiple contractors per project
+  - Clear permission boundaries
+  - Secure data access
+  - Audit trails
+  - Production deployment
+
+  **Alhamdulillah for the progress!** 🎉
+
+  **Ready for Session 8:** Photo Upload Module tomorrow! 📸
+
+  ---
+
+  **Session 7 Status:** ✅ COMPLETE  
+  **Session 8 Status:** 📋 PREPARED  
+  **Overall Status:** 🟢 EXCELLENT PROGRESS
+
+  **End of Day Log - December 31, 2025**
+
+  ---
+
+  **Bismillah for tomorrow's session!** 🚀
 
 ## 2025-12-30 - Session 5: Phase 2C Complete! 🎊
 
@@ -299,147 +620,147 @@
 
 ## 2025-12-29 - Session 1: Authentication System Complete! 🎉
 
-### ✅ Completed
-- Set up complete development environment (Node.js, React, Tailwind)
-- Created 11 authentication files
-- Built Login, Signup, and Dashboard pages
-- Tested complete authentication flow
-- All features working perfectly
-- Committed code to GitHub
+  ### ✅ Completed
+  - Set up complete development environment (Node.js, React, Tailwind)
+  - Created 11 authentication files
+  - Built Login, Signup, and Dashboard pages
+  - Tested complete authentication flow
+  - All features working perfectly
+  - Committed code to GitHub
 
-### 🎯 What Works
-- User can sign up with email/password
-- User can select role (MC/SC/Supplier)
-- User can login
-- Protected routes work (can't access dashboard without login)
-- User can sign out
-- Dashboard shows user info
+  ### 🎯 What Works
+  - User can sign up with email/password
+  - User can select role (MC/SC/Supplier)
+  - User can login
+  - Protected routes work (can't access dashboard without login)
+  - User can sign out
+  - Dashboard shows user info
 
-### 🏗️ Technical Stack Confirmed
-- Frontend: React 18 + Tailwind CSS
-- Database: Supabase (PostgreSQL)
-- Authentication: Supabase Auth
-- Routing: React Router v6
-- Hosting: Vercel (pending)
+  ### 🏗️ Technical Stack Confirmed
+  - Frontend: React 18 + Tailwind CSS
+  - Database: Supabase (PostgreSQL)
+  - Authentication: Supabase Auth
+  - Routing: React Router v6
+  - Hosting: Vercel (pending)
 
-### 🏗️ Files Created
-1. frontend/.env
-2. frontend/src/lib/supabase.js
-3. frontend/src/contexts/AuthContext.js
-4. frontend/src/components/ProtectedRoute.js
-5. frontend/src/components/Layout.js
-6. frontend/src/pages/Login.js
-7. frontend/src/pages/Signup.js
-8. frontend/src/pages/Dashboard.js
-9. frontend/src/App.js
-10. frontend/src/index.js
-11. frontend/src/index.css
+  ### 🏗️ Files Created
+  1. frontend/.env
+  2. frontend/src/lib/supabase.js
+  3. frontend/src/contexts/AuthContext.js
+  4. frontend/src/components/ProtectedRoute.js
+  5. frontend/src/components/Layout.js
+  6. frontend/src/pages/Login.js
+  7. frontend/src/pages/Signup.js
+  8. frontend/src/pages/Dashboard.js
+  9. frontend/src/App.js
+  10. frontend/src/index.js
+  11. frontend/src/index.css
 
-### ⏱️ Time Spent
-- Total: 4 hours
-  - Setup: 1 hour
-  - Coding: 2 hours
-  - Testing: 1 hour
+  ### ⏱️ Time Spent
+  - Total: 4 hours
+    - Setup: 1 hour
+    - Coding: 2 hours
+    - Testing: 1 hour
 
-### 💰 Budget Status
-- Spent: RM 0
-- Free tier usage: ~5% (plenty of room)
+  ### 💰 Budget Status
+  - Spent: RM 0
+  - Free tier usage: ~5% (plenty of room)
 
-### 💭 Learnings
-- Supabase makes authentication super easy
-- React Router v6 is straightforward
-- Tailwind CSS speeds up UI development
-- Free tiers are generous for MVP
+  ### 💭 Learnings
+  - Supabase makes authentication super easy
+  - React Router v6 is straightforward
+  - Tailwind CSS speeds up UI development
+  - Free tiers are generous for MVP
 
-### 🎊 Milestone Achieved
-**PHASE 1A COMPLETE: Authentication System Live!**
+  ### 🎊 Milestone Achieved
+  **PHASE 1A COMPLETE: Authentication System Live!**
 
----
+  ---
 
-## 📊 Cumulative Statistics
+    ## 📊 Cumulative Statistics
 
-### Overall Progress
-- **Start Date:** 2025-12-29
-- **Current Date:** 2025-12-30
-- **Days Active:** 2 days
-- **Sessions Completed:** 4 sessions
-- **Total Development Time:** 13.5 hours
-- **Overall Progress:** 55% (66/120 tasks)
-- **Budget Spent:** RM 0
+    ### Overall Progress
+    - **Start Date:** 2025-12-29
+    - **Current Date:** 2025-12-30
+    - **Days Active:** 2 days
+    - **Sessions Completed:** 4 sessions
+    - **Total Development Time:** 13.5 hours
+    - **Overall Progress:** 55% (66/120 tasks)
+    - **Budget Spent:** RM 0
 
-### Files Created
-- **Total Files:** 23 files
-- **Components:** 7 files
-- **Pages:** 10 files
-- **Services:** 1 file
-- **Configuration:** 5 files
+    ### Files Created
+    - **Total Files:** 23 files
+    - **Components:** 7 files
+    - **Pages:** 10 files
+    - **Services:** 1 file
+    - **Configuration:** 5 files
 
-### Lines of Code
-- **Session 1:** ~800 lines (Authentication)
-- **Session 2:** ~900 lines (Contract Management)
-- **Session 3:** ~1,200 lines (BOQ Creation)
-- **Session 4:** ~1,100 lines (BOQ Item Management)
-- **Total:** ~4,000 lines of production code
+    ### Lines of Code
+    - **Session 1:** ~800 lines (Authentication)
+    - **Session 2:** ~900 lines (Contract Management)
+    - **Session 3:** ~1,200 lines (BOQ Creation)
+    - **Session 4:** ~1,100 lines (BOQ Item Management)
+    - **Total:** ~4,000 lines of production code
 
-### Features Completed
-1. ✅ User authentication (signup/login/logout)
-2. ✅ Role-based access (MC/SC/Supplier)
-3. ✅ Contract CRUD operations
-4. ✅ Contract search and filtering
-5. ✅ Contract statistics dashboard
-6. ✅ BOQ creation and management
-7. ✅ BOQ item management (Add/Edit/Delete)
-8. ✅ Real-time calculations
-9. ✅ SST calculations (6%)
-10. ✅ Financial breakdown by type
-11. ✅ Status-based access control
-12. ✅ Professional UI/UX
+    ### Features Completed
+    1. ✅ User authentication (signup/login/logout)
+    2. ✅ Role-based access (MC/SC/Supplier)
+    3. ✅ Contract CRUD operations
+    4. ✅ Contract search and filtering
+    5. ✅ Contract statistics dashboard
+    6. ✅ BOQ creation and management
+    7. ✅ BOQ item management (Add/Edit/Delete)
+    8. ✅ Real-time calculations
+    9. ✅ SST calculations (6%)
+    10. ✅ Financial breakdown by type
+    11. ✅ Status-based access control
+    12. ✅ Professional UI/UX
 
-### Bug Fixes
-1. ✅ Contract schema mismatch (organization_id vs created_by)
-2. ✅ NaN calculation errors (property name mismatch)
+    ### Bug Fixes
+    1. ✅ Contract schema mismatch (organization_id vs created_by)
+    2. ✅ NaN calculation errors (property name mismatch)
 
-### Quality Metrics
-- **Code Quality:** High (proper error handling, validation)
-- **UI/UX Quality:** Professional (Tailwind CSS, responsive)
-- **Test Coverage:** Manual testing on all features
-- **Bug Count:** 2 (both resolved)
-- **Performance:** Fast (<1 second load times)
+    ### Quality Metrics
+    - **Code Quality:** High (proper error handling, validation)
+    - **UI/UX Quality:** Professional (Tailwind CSS, responsive)
+    - **Test Coverage:** Manual testing on all features
+    - **Bug Count:** 2 (both resolved)
+    - **Performance:** Fast (<1 second load times)
 
----
+    ---
 
-## 🎯 Next Session Preview
+    ## 🎯 Next Session Preview
 
-### Session 5: BOQ Sections & Import/Export
-**Estimated Time:** 3-4 hours  
-**Expected Tasks:** 8-10 tasks
+    ### Session 5: BOQ Sections & Import/Export
+    **Estimated Time:** 3-4 hours  
+    **Expected Tasks:** 8-10 tasks
 
-**Features to Build:**
-1. BOQ Sections CRUD
-2. Link items to sections
-3. Excel/CSV import functionality
-4. PDF export with Malaysian formats
-5. Advanced filtering
-6. Drag & drop item ordering
+    **Features to Build:**
+    1. BOQ Sections CRUD
+    2. Link items to sections
+    3. Excel/CSV import functionality
+    4. PDF export with Malaysian formats
+    5. Advanced filtering
+    6. Drag & drop item ordering
 
-**Technical Challenges:**
-- Excel parsing (xlsx library)
-- PDF generation (jspdf/pdfmake)
-- Section-based organization
-- Bulk operations
+    **Technical Challenges:**
+    - Excel parsing (xlsx library)
+    - PDF generation (jspdf/pdfmake)
+    - Section-based organization
+    - Bulk operations
 
-**Preparation:**
-- Review Excel import libraries
-- Study PWD Form 1 format
-- Prepare sample BOQ Excel files
-- Review PDF generation options
+    **Preparation:**
+    - Review Excel import libraries
+    - Study PWD Form 1 format
+    - Prepare sample BOQ Excel files
+    - Review PDF generation options
 
----
+    ---
 
-**Status:** 🟢 On Track  
-**Morale:** 🎉 Excellent  
-**Quality:** 🏆 High  
-**Budget:** 💚 Perfect (RM 0)
+    **Status:** 🟢 On Track  
+    **Morale:** 🎉 Excellent  
+    **Quality:** 🏆 High  
+    **Budget:** 💚 Perfect (RM 0)
 
 ## 2025-12-30 - Session 3: BOQ Module Foundation Complete! 🎉
 

@@ -18,6 +18,11 @@ import BOQList from './pages/boq/BOQList';
 import CreateBOQ from './pages/boq/CreateBOQ';
 import BOQDetail from './pages/boq/BOQDetail';
 
+// Import diary pages
+import DiaryList from './pages/diaries/DiaryList';
+import DiaryForm from './pages/diaries/DiaryForm';
+import DiaryDetail from './pages/diaries/DiaryDetail';
+
 function App() {
   return (
     <Router>
@@ -83,11 +88,53 @@ function App() {
             }
           />
           <Route
-            path="/boq/:boqId"
+            path="/contracts/:contractId/boq/:boqId"
             element={
               <ProtectedRoute>
                 <Layout>
                   <BOQDetail />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Daily Diary Routes */}
+          <Route
+            path="/contracts/:contractId/diaries"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <DiaryList />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/contracts/:contractId/diaries/new"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <DiaryForm />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/contracts/:contractId/diaries/:diaryId"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <DiaryDetail />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/contracts/:contractId/diaries/:diaryId/edit"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <DiaryForm />
                 </Layout>
               </ProtectedRoute>
             }

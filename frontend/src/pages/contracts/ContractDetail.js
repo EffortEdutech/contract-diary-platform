@@ -268,12 +268,15 @@ function ContractDetail() {
                   </button>
 
                   {/* Daily Diaries */}
-                  <button className="p-4 border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors text-left">
-                    <svg className="w-6 h-6 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <button 
+                    onClick={() => navigate(`/contracts/${contract.id}/diaries`)}
+                    className="p-4 border-2 border-green-500 bg-green-50 rounded-lg hover:border-green-600 hover:bg-green-100 transition-colors text-left"
+                  >
+                    <svg className="w-6 h-6 text-green-600 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
                     <p className="font-medium text-gray-900">Daily Diaries</p>
-                    <p className="text-sm text-gray-500">Phase 3</p>
+                    <p className="text-sm text-green-600">✅ Phase 3A Ready</p>
                   </button>
 
                   {/* Progress Claims */}

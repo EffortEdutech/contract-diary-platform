@@ -113,24 +113,61 @@ function ContractForm({ onSuccess, existingContract = null }) {
         organization_id: user.id // Link to the user's organization
       };
 
-      let result;
       if (isEditing) {
-        result = await supabase
+        // ============================================
+        // EDITING EXISTING CONTRACT
+        // ============================================
+        const result = await supabase
           .from('contracts')
           .update(contractData)
           .eq('id', existingContract.id);
+
+        if (result.error) throw result.error;
+
+        alert('Contract updated successfully!');
       } else {
-        result = await supabase
+        // ============================================
+        // CREATING NEW CONTRACT (2-STEP PROCESS FOR RBAC)
+        // ============================================
+        
+        // STEP 1: Create the contract
+        const { data: contract, error: contractError } = await supabase
           .from('contracts')
-          .insert([contractData]);
-      }
+          .insert([contractData])
+          .select()
+          .single();
 
-      if (result.error) throw result.error;
+        if (contractError) throw contractError;
 
-      alert(isEditing ? 'Contract updated successfully!' : 'Contract created successfully!');
-      
-      // Reset form if creating new
-      if (!isEditing) {
+        console.log('Contract created:', contract.id);
+
+        // STEP 2: CRITICAL - Add creator as contract owner
+        // This is required for RBAC permissions to work!
+        const { error: memberError } = await supabase
+          .from('contract_members')
+          .insert({
+            contract_id: contract.id,
+            user_id: user.id,
+            member_role: 'owner',
+            invited_by: user.id,
+            invitation_status: 'active'
+          });
+
+        if (memberError) {
+          console.error('Failed to add contract owner:', memberError);
+          // Clean up: Delete the contract if member creation fails
+          await supabase
+            .from('contracts')
+            .delete()
+            .eq('id', contract.id);
+          throw new Error('Failed to set contract ownership: ' + memberError.message);
+        }
+
+        console.log('Contract owner added successfully');
+
+        alert('Contract created successfully!');
+        
+        // Reset form
         setFormData({
           contract_number: '',
           project_name: '',

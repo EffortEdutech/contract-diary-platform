@@ -220,7 +220,7 @@ function BOQList() {
                   <tr key={boq.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <Link
-                        to={`/boq/${boq.id}`}
+                        to={`/contracts/${contractId}/boq/${boq.id}`}
                         className="text-blue-600 hover:text-blue-800 font-medium"
                       >
                         {boq.boq_number}
@@ -250,7 +250,7 @@ function BOQList() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <Link
-                        to={`/boq/${boq.id}`}
+                        to={`/contracts/${contractId}/boq/${boq.id}`}
                         className="text-blue-600 hover:text-blue-900 mr-4"
                       >
                         View

@@ -18,7 +18,7 @@ import ImportBOQModal from '../../components/boq/ImportBOQModal';
 import ExportPDFButton from '../../components/boq/ExportPDFButton';
 
 function BOQDetail() {
-  const { boqId } = useParams();
+  const { contractId, boqId } = useParams();
   const navigate = useNavigate();
   
   // State management
@@ -186,7 +186,7 @@ function BOQDetail() {
         <div className="bg-red-50 border border-red-200 rounded-lg p-4">
           <p className="text-red-800">{error}</p>
           <button
-            onClick={() => navigate('/boq')}
+            onClick={() => navigate(`/contracts/${contractId}/boq`)}
             className="mt-4 text-red-600 hover:text-red-800"
           >
             ← Back to BOQ List
@@ -208,7 +208,7 @@ function BOQDetail() {
       <div className="mb-6">
         <div className="flex justify-between items-start">
           <div>
-            <Link to="/boq" className="text-blue-600 hover:text-blue-800 mb-2 inline-block">
+            <Link to={`/contracts/${contractId}/boq`} className="text-blue-600 hover:text-blue-800 mb-2 inline-block">
               ← Back to BOQ List
             </Link>
             <h1 className="text-3xl font-bold text-gray-900">{boq.title}</h1>
