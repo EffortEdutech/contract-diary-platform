@@ -9,9 +9,14 @@ import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
 
-// NEW: Contract pages
+// Contract pages
 import Contracts from './pages/contracts/Contracts';
 import ContractDetail from './pages/contracts/ContractDetail';
+
+// NEW: BOQ pages (we'll create these next)
+import BOQList from './pages/boq/BOQList';
+import CreateBOQ from './pages/boq/CreateBOQ';
+import BOQDetail from './pages/boq/BOQDetail';
 
 function App() {
   return (
@@ -34,7 +39,7 @@ function App() {
             }
           />
 
-          {/* NEW: Contract routes */}
+          {/* Contract routes */}
           <Route
             path="/contracts"
             element={
@@ -51,6 +56,38 @@ function App() {
               <ProtectedRoute>
                 <Layout>
                   <ContractDetail />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+
+          {/* NEW: BOQ routes */}
+          <Route
+            path="/contracts/:contractId/boq"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <BOQList />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/contracts/:contractId/boq/new"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <CreateBOQ />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/boq/:boqId"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <BOQDetail />
                 </Layout>
               </ProtectedRoute>
             }
