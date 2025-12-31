@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "browser-image-compression": "^2.0.2",
     "jspdf": "^3.0.4",
     "jspdf-autotable": "^5.0.2",
     "xlsx": "^0.18.5"

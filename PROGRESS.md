@@ -1,5 +1,466 @@
 
-# PROJECT PROGRESS TRACKER **Last Updated:** December 31, 2025 (Session 6 & 7)  
+# PROJECT PROGRESS TRACKER      **Last Updated:** January 1, 2026 (Session 8) 
+
+    **Overall Progress:** 85% Complete (102/120 tasks)  
+    **Budget:** RM 0 (Free Tier)  
+    **Status:** 🟢 Excellent Progress - Photo Module Complete
+
+    ---
+
+    ## 🎯 PROJECT OVERVIEW
+
+    **Project Name:** Contract Diary Platform (CIPAA Compliance)  
+    **Target Users:** Malaysian Construction Industry (G4-G7 Contractors)  
+    **Tech Stack:** React, Supabase, Tailwind CSS, Vercel  
+    **Development Approach:** DIY with Full AI Assistance
+
+    ---
+
+    ## 📈 PROGRESS BY PHASE
+
+    ### **✅ PHASE 1A: AUTHENTICATION & USER MANAGEMENT (100%)**
+    **Status:** Complete  
+    **Tasks:** 10/10  
+
+    - ✅ Email/password registration
+    - ✅ Role-based signup (MC/SC/Consultant/Supplier)
+    - ✅ Login with session management
+    - ✅ Protected routes with authentication
+    - ✅ User profile management
+    - ✅ Password reset functionality
+    - ✅ CIDB registration tracking
+    - ✅ Role-based UI elements
+    - ✅ Session persistence
+    - ✅ Logout functionality
+
+    ---
+
+    ### **✅ PHASE 1B: CONTRACT MANAGEMENT (100%)**
+    **Status:** Complete  
+    **Tasks:** 15/15  
+
+    - ✅ Contract creation form (Malaysian standards)
+    - ✅ Contract listing with filters
+    - ✅ Contract detail view
+    - ✅ Contract editing
+    - ✅ Contract status tracking (draft/active/completed/suspended)
+    - ✅ Contract types (PWD 203A, PAM 2018, IEM, CIDB, JKR DB)
+    - ✅ Auto-calculate contract duration
+    - ✅ Organization linking
+    - ✅ Contract search and filtering
+    - ✅ Contract deletion (with confirmation)
+    - ✅ RBAC Integration: Membership-based access
+    - ✅ 2-Step Creation: Contract + contract_members
+    - ✅ Ownership Tracking: Via contract_members table
+    - ✅ Permission Enforcement: MC-only creation
+    - ✅ Multi-tenant Support: Organization structure
+
+    ---
+
+    ### **✅ PHASE 2A: BOQ CREATION (100%)**
+    **Status:** Complete  
+    **Tasks:** 15/15  
+
+    - ✅ BOQ creation with auto-numbering
+    - ✅ Section organization (Preliminary, Substructure, etc.)
+    - ✅ Malaysian measurement units (m², m³, kg, ton, pcs, day, hour)
+    - ✅ Item type classification (Material, Labor, Equipment, Subcontractor)
+    - ✅ Unit rate and quantity tracking
+    - ✅ Auto-calculation of amounts
+    - ✅ SST calculation (6% on materials)
+    - ✅ Section totals and grand total
+    - ✅ BOQ status workflow (draft/approved/locked)
+    - ✅ BOQ approval process
+    - ✅ Edit restrictions (draft only)
+    - ✅ Delete restrictions (draft only)
+    - ✅ BOQ statistics dashboard
+    - ✅ Excel/CSV import for bulk entry
+    - ✅ PDF export (PWD Form 1 format)
+
+    ---
+
+    ### **✅ PHASE 2B: BOQ ITEM MANAGEMENT (100%)**
+    **Status:** Complete  
+    **Tasks:** 20/20  
+
+    - ✅ Add BOQ items (all types)
+    - ✅ Edit BOQ items with pre-filled forms
+    - ✅ Delete BOQ items with confirmation
+    - ✅ View items in color-coded table
+    - ✅ Item breakdown (material/labor/equipment)
+    - ✅ Auto-calculate unit rates from breakdown
+    - ✅ Section-based organization
+    - ✅ Item reordering within sections
+    - ✅ Type-based financial breakdown
+    - ✅ Malaysian unit validations
+    - ✅ Price calculations with SST
+    - ✅ Item search and filtering
+    - ✅ Bulk operations support
+    - ✅ Import validation
+    - ✅ Export formatting
+    - ✅ Section management (create/edit/delete)
+    - ✅ Auto-section assignment on import
+    - ✅ Accordion section display
+    - ✅ Navigation fixes (all BOQ routes)
+    - ✅ RBAC integration (MC-only editing)
+
+    ---
+
+    ### **✅ PHASE 3A: DAILY DIARY MODULE (100%)**
+    **Status:** Complete  
+    **Tasks:** 10/10  
+
+    - ✅ Daily diary creation and listing
+    - ✅ Weather tracking (Malaysian context)
+    - ✅ Work progress descriptions
+    - ✅ Manpower tracking by trade
+    - ✅ Equipment tracking with condition
+    - ✅ Material delivery tracking
+    - ✅ Site instruction tracking
+    - ✅ Main Contractor acknowledgment workflow
+    - ✅ Auto-save functionality (2-minute interval)
+    - ✅ Status-based permissions (draft/submitted/acknowledged)
+
+    ---
+
+    ### **✅ PHASE 3B: PHOTO UPLOAD MODULE (100%)** ⭐ NEW!
+    **Status:** Complete  
+    **Tasks:** 8/8  
+
+    - ✅ Supabase storage bucket setup
+    - ✅ Photo upload with drag & drop
+    - ✅ Multiple file selection
+    - ✅ File validation (size, type)
+    - ✅ Photo gallery with thumbnails
+    - ✅ Lightbox viewer with navigation
+    - ✅ Photo deletion (draft only)
+    - ✅ Caption support for photos
+
+    **ENHANCEMENTS ADDED:**
+    - ✅ Image compression (auto-optimizes large files)
+    - ✅ Individual caption input
+    - ✅ Better validation messages
+    - ✅ Total size calculation
+    - ✅ Photo management in edit mode
+    - ✅ Tabbed interface in DiaryDetail
+    - ✅ Gallery + Upload in DiaryForm
+
+    ---
+
+    ### **✅ RBAC SYSTEM (100%)** ⭐
+    **Status:** Complete  
+    **Tasks:** 10/10  
+
+    - ✅ User profiles with role management
+    - ✅ Organization structure
+    - ✅ Contract membership system
+    - ✅ Permission matrix (MC vs SC)
+    - ✅ Database-level RLS policies (21 policies)
+    - ✅ Helper functions for permission checks
+    - ✅ Role-based UI rendering
+    - ✅ CIPAA compliance enforcement
+    - ✅ Multi-tenant data isolation
+    - ✅ Ownership tracking via contract_members
+
+    ---
+
+    ### **⏳ PHASE 4: PROGRESS CLAIMS MODULE (0%)**
+    **Status:** Next Session  
+    **Tasks:** 0/25  
+
+    **Planned Features:**
+    - Progress claim creation
+    - BOQ-based claim generation
+    - Cumulative progress tracking
+    - Payment certificates
+    - Claim approval workflow
+    - Payment tracking
+    - Retention tracking (5% or 10%)
+    - CIPAA payment timeline
+    - Variation order tracking
+    - Claim status workflow
+
+    **Estimated Time:** 2-3 sessions
+
+    ---
+
+    ### **⏳ PHASE 5: DOCUMENT MANAGEMENT (0%)**
+    **Status:** Future  
+    **Tasks:** 0/15  
+
+    **Planned Features:**
+    - Document upload (contracts, drawings, specs)
+    - Document categorization
+    - Version control
+    - Document sharing
+    - Access permissions
+    - Search and filter
+
+    ---
+
+    ### **⏳ PHASE 6: REPORTS & ANALYTICS (0%)**
+    **Status:** Future  
+    **Tasks:** 0/12  
+
+    **Planned Features:**
+    - Progress reports
+    - Payment reports
+    - Diary summaries
+    - BOQ reports
+    - Export to PDF/Excel
+    - Dashboard analytics
+
+    ---
+
+    ## 📊 DETAILED METRICS
+
+    ### **Code Statistics:**
+    - Total Files: 70+ files
+    - Lines of Code: ~20,000+ lines
+    - React Components: 35+ components
+    - Services: 7 service modules
+    - Database Tables: 14 tables
+    - RLS Policies: 25+ policies
+    - Helper Functions: 4 functions
+    - Sessions Completed: 8 sessions
+
+    ### **Database Schema:**
+    **Active Tables:**
+    1. auth.users (Supabase)
+    2. user_profiles (RBAC)
+    3. organizations (RBAC)
+    4. contract_members (RBAC)
+    5. contracts
+    6. boq
+    7. boq_sections
+    8. boq_items
+    9. boq_item_breakdown
+    10. work_diaries
+    11. diary_manpower
+    12. diary_equipment
+    13. diary_materials
+    14. diary_photos ⭐ NEW!
+
+    **Future Tables:**
+    - progress_claims (Phase 4)
+    - claim_items (Phase 4)
+    - payment_certificates (Phase 4)
+    - documents (Phase 5)
+
+    ### **Budget Tracking:**
+    - Supabase: RM 0 (Free Tier - 500MB database, 2GB storage used ~20%)
+    - Vercel: RM 0 (Free Tier)
+    - Domain: RM 0 (Using Vercel subdomain)
+    - **Total Spent: RM 0** 💰
+    - **Sustainability:** Free tier adequate for MVP and initial users
+
+    ---
+
+    ## 🎯 MILESTONE ACHIEVEMENTS
+
+    ### **Major Milestones:**
+    - ✅ **Milestone 1:** Authentication System Complete
+    - ✅ **Milestone 2:** Contract Management Complete
+    - ✅ **Milestone 3:** BOQ System Complete
+    - ✅ **Milestone 4:** Daily Diary Complete
+    - ✅ **Milestone 5:** RBAC System Complete
+    - ✅ **Milestone 6:** Photo Module Complete ⭐
+    - 🔄 **Milestone 7:** Progress Claims (Next)
+    - ⏳ **Milestone 8:** Document Management
+    - ⏳ **Milestone 9:** Reports & Analytics
+    - ⏳ **Milestone 10:** Production Launch
+
+    ### **Current Milestone:** Phase 4 - Progress Claims Module
+
+    ---
+
+    ## 🚀 VELOCITY & TIMELINE
+
+    ### **Sessions Completed:** 8 sessions
+    ### **Average Tasks per Session:** 12-13 tasks
+    ### **Estimated Remaining Sessions:** 2-3 sessions
+    ### **Estimated Completion Date:** Mid-January 2026
+
+    ### **Session Breakdown:**
+    - Session 1-2: Authentication & Setup
+    - Session 3-4: Contract Management
+    - Session 5: BOQ Foundation & Import/Export
+    - Session 6: Daily Diary Module
+    - Session 7: RBAC System Implementation
+    - Session 8: Photo Upload Module ⭐
+    - **Session 9-10:** Progress Claims (Planned)
+    - **Session 11:** Final Polish & Deployment
+
+    ---
+
+    ## 🎓 KEY LEARNINGS
+
+    ### **Technical Learnings:**
+    1. RBAC implementation with database-level enforcement
+    2. Supabase Storage integration patterns
+    3. RLS policy design without recursion
+    4. Multi-tenant architecture patterns
+    5. Malaysian construction industry standards
+    6. CIPAA compliance requirements
+    7. Image compression techniques
+    8. Photo gallery lightbox implementation
+    9. File upload with drag & drop
+    10. Signed URLs for private storage
+
+    ### **Process Learnings:**
+    1. Review project knowledge before coding
+    2. Test incrementally after each change
+    3. Document everything for continuity
+    4. Handle errors with cleanup strategies
+    5. Listen to user feedback (photo thumbnails!)
+    6. Comprehensive integration > partial features
+
+    ---
+
+    ## 🔍 KNOWN ISSUES
+
+    **Current:** None! All issues resolved ✅
+
+    **Session 8 Issue (Resolved):**
+    - ✅ DiaryForm compilation errors (improper integration)
+    - **Solution:** Provided complete integration guide
+    - **Lesson:** Don't replace entire files, insert code sections
+
+    ---
+
+    ## 📋 UPCOMING PRIORITIES
+
+    ### **Immediate (Session 9):**
+    1. Progress Claims database schema
+    2. Claim creation form
+    3. BOQ-based claim generation
+    4. Cumulative progress tracking
+    5. Payment certificate generation
+
+    ### **Short-term (Session 10):**
+    1. Claim approval workflow
+    2. Payment tracking
+    3. Retention management
+    4. CIPAA timeline tracking
+    5. Variation orders
+
+    ### **Medium-term:**
+    1. Document management
+    2. Reports and analytics
+    3. Dashboard improvements
+    4. Mobile optimization
+    5. Production deployment
+
+    ---
+
+    ## 📈 PROGRESS VISUALIZATION
+
+    ```
+    Overall Progress: 85% █████████████████░░░ (102/120 tasks)
+
+    Phase Breakdown:
+    Phase 0 - Setup:              ████████████████████ 100%
+    Phase 1A - Authentication:    ████████████████████ 100%
+    Phase 1B - Contract Mgmt:     ████████████████████ 100%
+    Phase 2A - BOQ Creation:      ████████████████████ 100%
+    Phase 2B - BOQ Items:         ████████████████████ 100%
+    Phase 3A - Daily Diary:       ████████████████████ 100%
+    Phase 3B - Photo Module:      ████████████████████ 100% ⭐
+    RBAC System:                  ████████████████████ 100%
+    Phase 4 - Progress Claims:    ░░░░░░░░░░░░░░░░░░░░   0%
+    Phase 5 - Documents:          ░░░░░░░░░░░░░░░░░░░░   0%
+    Phase 6 - Reports:            ░░░░░░░░░░░░░░░░░░░░   0%
+    ```
+
+    ---
+
+    ## 🎯 WHAT USERS CAN DO NOW
+
+    ### **Complete Features:**
+    - ✅ Sign up and login with role selection
+    - ✅ Create and manage contracts (all Malaysian types)
+    - ✅ Create BOQs with sections and items
+    - ✅ Import BOQ from Excel/CSV
+    - ✅ Export BOQ to PDF (PWD Form 1)
+    - ✅ Create daily diaries with auto-save
+    - ✅ Track manpower, equipment, materials
+    - ✅ **Upload photos with captions** ⭐
+    - ✅ **View photos in gallery** ⭐
+    - ✅ **Manage photos in edit mode** ⭐
+    - ✅ Submit diaries for acknowledgment
+    - ✅ MC acknowledge diaries
+    - ✅ View statistics and summaries
+
+    ### **User Experience:**
+    - Professional tabbed interface
+    - Mobile responsive design
+    - Drag & drop file uploads
+    - Image compression (saves bandwidth)
+    - Lightbox photo viewer
+    - Keyboard navigation
+    - Real-time validation
+    - Auto-save functionality
+    - CIPAA compliant workflows
+
+    ---
+
+    ## 💡 IMPORTANT NOTES
+
+    ### **File Locations:**
+    - **Supabase Config:** `/lib/supabase.js`
+    - **Services:** `/services/` directory
+    - **Components:** `/components/` directory
+    - **Pages:** `/pages/` directory
+
+    ### **Naming Conventions:**
+    - Use `organization_id` (not `created_by`)
+    - Use `contract_value` (not `contract_sum`)
+    - Use `diary_date` (YYYY-MM-DD format)
+    - Use `storage_path` for photo references
+
+    ### **Database Important Points:**
+    1. Contracts table uses `organization_id` and `contract_value`
+    2. BOQ table has `created_by` column
+    3. Photo storage uses signed URLs (1-hour expiry)
+    4. RLS policies enforce MC vs SC permissions
+    5. Photos locked when diary submitted (CIPAA)
+
+    ---
+
+    ## 🎊 SESSION 8 HIGHLIGHTS
+
+    **Duration:** ~4 hours  
+    **Focus:** Photo Upload Module + User Feedback Integration  
+    **Files Created:** 11 files  
+    **Lines of Code:** ~2,800+ lines  
+    **Bugs Fixed:** 1 (compilation error from integration)  
+    **Enhancements:** 3 major features added
+
+    **Achievements:**
+    - ✅ Complete photo upload system
+    - ✅ Gallery with lightbox viewer
+    - ✅ Image compression support
+    - ✅ Caption functionality
+    - ✅ DiaryDetail tabbed interface
+    - ✅ DiaryForm photo management
+    - ✅ User feedback incorporated (photo thumbnails)
+    - ✅ Professional documentation
+
+    **Technical Innovations:**
+    - Client-side image compression
+    - Drag & drop with fallback
+    - Preview generation
+    - Auto-refresh on upload
+    - Permission-based UI
+    - Status-locked evidence
+
+    ---
+
+    **Alhamdulillah for the progress made!** 🎉  
+    **85% complete - Almost there!** 🚀  
+    **Bismillah for Session 9!** 📈
+
+# PROJECT PROGRESS TRACKER      **Last Updated:** December 31, 2025 (Session 6 & 7)  
 
     **Last Updated:** December 31, 2025 (Session 7)  
     **Overall Progress:** 78% Complete (94/120 tasks)  

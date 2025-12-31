@@ -22,6 +22,8 @@ import {
   DIARY_STATUS
 } from '../../services/diaryService';
 import { supabase } from '../../lib/supabase';
+import PhotoUpload from '../../components/diary/PhotoUpload';
+import PhotoGallery from '../../components/diary/PhotoGallery';
 
 const DiaryForm = () => {
   const { contractId, diaryId } = useParams();
@@ -40,6 +42,7 @@ const DiaryForm = () => {
   const [lastSaved, setLastSaved] = useState(null);
   const autoSaveTimerRef = useRef(null);
   const hasChangesRef = useRef(false);
+  const [photoRefreshKey, setPhotoRefreshKey] = useState(0);
 
   // Form data
   const [formData, setFormData] = useState({
@@ -951,6 +954,145 @@ const DiaryForm = () => {
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             placeholder="Record any issues, delays, or concerns..."
           />
+        </div>
+
+        {/* Photo Management Section */}
+        <div className="border-t pt-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900">Photos</h2>
+              <p className="text-sm text-gray-600 mt-1">
+                Visual documentation for CIPAA compliance
+              </p>
+            </div>
+            {diaryId && (
+              <span className="text-xs text-blue-600 bg-blue-50 px-3 py-1 rounded-full flex items-center">
+                <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                Visual Evidence
+              </span>
+            )}
+          </div>
+          
+          {/* For existing diaries (edit mode) - Show Gallery + Upload */}
+          {diaryId ? (
+            <div className="space-y-6">
+              
+              {/* Existing Photos Gallery */}
+              <div>
+                <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
+                  <svg className="w-4 h-4 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  Uploaded Photos
+                </h3>
+                
+                {/* Photo Gallery Component */}
+                <PhotoGallery
+                  key={photoRefreshKey} // Force refresh when photos uploaded
+                  diaryId={diaryId}
+                  canEdit={true} // Can delete in edit mode
+                  onPhotoDeleted={(photoId) => {
+                    console.log('Photo deleted:', photoId);
+                    // Optionally show success message
+                  }}
+                />
+              </div>
+
+              {/* Upload New Photos */}
+              <div className="border-t pt-6">
+                <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
+                  <svg className="w-4 h-4 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  Add More Photos
+                </h3>
+                
+                {/* Photo Upload Component */}
+                <PhotoUpload
+                  diaryId={diaryId}
+                  onUploadComplete={(results) => {
+                    console.log('Photos uploaded:', results);
+                    
+                    // Show success message
+                    if (results.successful.length > 0) {
+                      const message = results.failed.length > 0
+                        ? `${results.successful.length} photo(s) uploaded, ${results.failed.length} failed`
+                        : `${results.successful.length} photo(s) uploaded successfully!`;
+                      alert(message);
+                      
+                      // Refresh gallery to show new photos
+                      setPhotoRefreshKey(prev => prev + 1);
+                    }
+                    
+                    // Show failure message if all failed
+                    if (results.failed.length > 0 && results.successful.length === 0) {
+                      alert(`Failed to upload ${results.failed.length} photo(s)`);
+                    }
+                  }}
+                  disabled={saving}
+                />
+              </div>
+
+
+
+              {/* CIPAA Compliance Note */}
+              <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                <div className="flex items-start">
+                  <svg className="w-4 h-4 text-green-600 mt-0.5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <p className="text-xs text-green-800">
+                    <strong>CIPAA Compliance:</strong> Photos serve as timestamped evidence. 
+                    They will be locked when you submit this diary and cannot be modified.
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            // For new diaries (create mode) - Show info message
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-start">
+                <svg className="w-5 h-5 text-blue-600 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <div>
+                  <h3 className="text-sm font-medium text-blue-800">Add Photos After Saving</h3>
+                  <p className="mt-1 text-sm text-blue-700">
+                    Save this diary as a draft first, then you can add photos to document your work. 
+                    Photos are essential for CIPAA compliance and dispute prevention.
+                  </p>
+                  <ul className="mt-2 text-xs text-blue-600 space-y-1 ml-4">
+                    <li className="flex items-center">
+                      <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                      Site conditions and progress
+                    </li>
+                    <li className="flex items-center">
+                      <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                      Equipment and materials
+                    </li>
+                    <li className="flex items-center">
+                      <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                      Before/after comparisons
+                    </li>
+                    <li className="flex items-center">
+                      <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                      Timestamped evidence
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Action Buttons */}
