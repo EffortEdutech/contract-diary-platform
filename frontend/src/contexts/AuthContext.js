@@ -1,3 +1,11 @@
+// ============================================
+// AUTH CONTEXT - FIXED VERSION
+// ============================================
+// Fix: Changed 'profiles' to 'user_profiles'
+// Fix: Removed organizations join (it's already in user_profiles)
+// Created: 2025-12-31
+// ============================================
+
 import { createContext, useContext, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 
@@ -37,9 +45,10 @@ export const AuthProvider = ({ children }) => {
   }, [])
 
   const fetchProfile = async (userId) => {
+    // ✅ FIXED: Changed from 'profiles' to 'user_profiles'
     const { data, error } = await supabase
-      .from('profiles')
-      .select('*, organizations(*)')
+      .from('user_profiles')
+      .select('*')
       .eq('id', userId)
       .single()
 

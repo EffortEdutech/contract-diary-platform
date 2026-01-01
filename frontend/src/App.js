@@ -23,6 +23,11 @@ import DiaryList from './pages/diaries/DiaryList';
 import DiaryForm from './pages/diaries/DiaryForm';
 import DiaryDetail from './pages/diaries/DiaryDetail';
 
+// Import Claims components
+import ClaimList from './pages/claims/ClaimList';
+import CreateClaim from './pages/claims/CreateClaim';
+import ClaimDetail from './pages/claims/ClaimDetail';
+
 function App() {
   return (
     <Router>
@@ -135,6 +140,39 @@ function App() {
               <ProtectedRoute>
                 <Layout>
                   <DiaryForm />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/contracts/:contractId/claims"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <ClaimList />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/contracts/:contractId/claims/create"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <CreateClaim />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/contracts/:contractId/claims/:claimId"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <ClaimDetail />
                 </Layout>
               </ProtectedRoute>
             }

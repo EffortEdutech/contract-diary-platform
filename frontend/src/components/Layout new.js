@@ -62,35 +62,20 @@ function Layout({ children }) {
       <header className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            {/* Left: Platform Title + User Info */}
-            <div className="flex items-center space-x-8">
-
-            {/* Platform Title */}
-            <div className="flex flex-col">
-                <h1 className="text-xl font-bold text-blue-600 leading-tight">
-                Contract Diary
-                </h1>
-                <span className="text-xs text-gray-500">
-                Malaysian Construction Platform
-                </span>
-            </div>
-
-            {/* User Info */}
-            <div className="flex items-center space-x-3">
+            {/* Left: User Info */}
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-3">
                 <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-semibold">
-                {user?.email?.charAt(0).toUpperCase()}
+                  {user?.email?.charAt(0).toUpperCase()}
                 </div>
                 <div>
-                <p className="text-sm font-medium text-gray-900">{user?.email}</p>
-                <p className="text-xs text-gray-500">
-                    {userRole?.replace('_', ' ').toUpperCase() || 'USER'} • {contractCount}{' '}
-                    {contractCount === 1 ? 'Contract' : 'Contracts'}
-                </p>
+                  <p className="text-sm font-medium text-gray-900">{user?.email}</p>
+                  <p className="text-xs text-gray-500">
+                    {userRole?.replace('_', ' ').toUpperCase() || 'USER'} • {contractCount} {contractCount === 1 ? 'Contract' : 'Contracts'}
+                  </p>
                 </div>
+              </div>
             </div>
-
-            </div>
-
 
             {/* Right: Home + Settings + Sign Out */}
             <div className="flex items-center space-x-2">
@@ -104,7 +89,7 @@ function Layout({ children }) {
                 </svg>
               </button>
               <button
-                onClick={() => alert("Settings Page Under Construction")}
+                onClick={handleSignOut}
                 className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
                 title="Settings"
               >
