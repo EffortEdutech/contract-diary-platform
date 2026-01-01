@@ -4,7 +4,7 @@
     "date-fns": "^4.1.0",
     "jspdf": "^3.0.4",
     "jspdf-autotable": "^5.0.2",
-    "recharts": "^2.5.0",
+    "recharts": "^2.15.4",
     "xlsx": "^0.18.5"
   }
 }
