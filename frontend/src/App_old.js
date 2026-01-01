@@ -13,23 +13,20 @@ import Dashboard from './pages/Dashboard';
 import Contracts from './pages/contracts/Contracts';
 import ContractDetail from './pages/contracts/ContractDetail';
 
-// BOQ pages
+// NEW: BOQ pages (we'll create these next)
 import BOQList from './pages/boq/BOQList';
 import CreateBOQ from './pages/boq/CreateBOQ';
 import BOQDetail from './pages/boq/BOQDetail';
 
-// Diary pages
+// Import diary pages
 import DiaryList from './pages/diaries/DiaryList';
 import DiaryForm from './pages/diaries/DiaryForm';
 import DiaryDetail from './pages/diaries/DiaryDetail';
 
-// Claims components
+// Import Claims components
 import ClaimList from './pages/claims/ClaimList';
 import CreateClaim from './pages/claims/CreateClaim';
 import ClaimDetail from './pages/claims/ClaimDetail';
-
-// Reports component - NEW!
-import Reports from './pages/reports/Reports';
 
 function App() {
   return (
@@ -74,7 +71,7 @@ function App() {
             }
           />
 
-          {/* BOQ routes */}
+          {/* NEW: BOQ routes */}
           <Route
             path="/contracts/:contractId/boq"
             element={
@@ -148,7 +145,6 @@ function App() {
             }
           />
 
-          {/* Claims Routes */}
           <Route
             path="/contracts/:contractId/claims"
             element={
@@ -177,18 +173,6 @@ function App() {
               <ProtectedRoute>
                 <Layout>
                   <ClaimDetail />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
-
-          {/* Reports Routes - NEW! */}
-          <Route
-            path="/contracts/:contractId/reports"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <Reports />
                 </Layout>
               </ProtectedRoute>
             }
