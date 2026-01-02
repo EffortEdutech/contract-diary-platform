@@ -81,9 +81,13 @@ export default function Login() {
             </button>
           </div>
 
+          <p className="text-sm text-gray-600 text-center">
+            Don't have an account? Contact your administrator for an invitation.
+          </p>
+
           <div className="text-sm text-center">
             <Link to="/signup" className="font-medium text-primary hover:text-blue-500">
-              Don't have an account? Sign up
+              Your organization don't have an account? Sign up
             </Link>
           </div>
         </form>

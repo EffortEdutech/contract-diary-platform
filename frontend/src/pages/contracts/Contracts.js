@@ -9,35 +9,71 @@ import { useNavigate } from 'react-router-dom';
 function Contracts() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('list'); // 'list' or 'create'
+  const [activeTab, setActiveTab] = useState('list');
   const [contracts, setContracts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterType, setFilterType] = useState('all');
 
-  // Fetch contracts
-  useEffect(() => {
-    fetchContracts();
-  }, [user]);
-
+  // Fetch contracts where user is a MEMBER
   const fetchContracts = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      
+      if (!user) {
+        setContracts([]);
+        setLoading(false);
+        return;
+      }
+
+      // Step 1: Get contract IDs where user is a member
+      const { data: memberData, error: memberError } = await supabase
+        .from('contract_members')
+        .select('contract_id, member_role')
+        .eq('user_id', user.id);
+
+      if (memberError) throw memberError;
+
+      if (!memberData || memberData.length === 0) {
+        setContracts([]);
+        setLoading(false);
+        return;
+      }
+
+      const contractIds = memberData.map(m => m.contract_id);
+
+      // Step 2: Get contract details
+      const { data: contractData, error: contractError } = await supabase
         .from('contracts')
         .select('*')
+        .in('id', contractIds)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      setContracts(data || []);
-    } catch (error) {
-      console.error('Error fetching contracts:', error);
-      alert('Error loading contracts: ' + error.message);
+      if (contractError) throw contractError;
+
+      // Step 3: Add role info to each contract
+      const contractsWithRole = (contractData || []).map(contract => {
+        const membership = memberData.find(m => m.contract_id === contract.id);
+        return {
+          ...contract,
+          my_role: membership?.member_role || 'member'
+        };
+      });
+
+      setContracts(contractsWithRole);
+      console.log(`✅ Loaded ${contractsWithRole.length} contracts`);
+    } catch (err) {
+      console.error('Error loading contracts:', err);
+      setContracts([]);
     } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchContracts();
+  }, [user]);
 
   // Filter contracts
   const filteredContracts = contracts.filter(contract => {

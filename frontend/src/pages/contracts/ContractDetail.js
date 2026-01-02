@@ -254,7 +254,7 @@ function ContractDetail() {
               {/* Quick Actions */}
               <div className="mt-8 pt-8 border-t border-gray-200">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                   {/* BOQ Button - NOW WORKING! */}
                   <button 
                     onClick={() => navigate(`/contracts/${contract.id}/boq`)}
@@ -279,11 +279,10 @@ function ContractDetail() {
                     <p className="text-sm text-green-600">✅ Phase 3 Ready</p>
                   </button>
 
-                  {/* Progress Claims Tab */}
+                  {/* Progress Claims */}
                   <button
                     onClick={() => navigate(`/contracts/${contract.id}/claims`)}
-                    className="p-4 border-2 border-orange-500 bg-orange-50 rounded-lg hover:border-orange-600 hover:bg-orange-100 transition-colors text-left"
-                  >
+                    className="p-4 border-2 border-orange-500 bg-orange-50 rounded-lg hover:border-orange-600 hover:bg-orange-100 transition-colors text-left">
                       <svg className="w-6 h-6 text-orange-600 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
@@ -292,12 +291,23 @@ function ContractDetail() {
                   </button>
 
                   {/* Documents */}
-                  <button className="p-4 border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors text-left">
-                    <svg className="w-6 h-6 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <button className="p-4 border-2 border-yellow-200 rounded-lg hover:border-yellow-500 hover:bg-yellow-50 transition-colors text-left">
+                    <svg className="w-6 h-6 text-yellow-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                     </svg>
                     <p className="font-medium text-gray-900">Documents</p>
-                    <p className="text-sm text-gray-500">Phase 4</p>
+                    <p className="text-sm text-gray-600">Phase 4</p>
+                  </button>
+
+                  {/* Team Members Button - NEW! */}
+                  <button 
+                    onClick={() => navigate(`/contracts/${contract.id}/members`)}
+                    className="p-4 border-2 border-purple-500 bg-purple-50 rounded-lg hover:border-purple-600 hover:bg-purple-100 transition-colors text-left">
+                    <svg className="w-6 h-6 text-purple-600 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                    <p className="font-medium text-gray-900">Team Members</p>
+                    <p className="text-sm text-purple-600">✅ Session 12 Ready</p>
                   </button>
                 </div>
               </div>              

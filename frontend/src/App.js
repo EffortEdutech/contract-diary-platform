@@ -7,11 +7,14 @@ import Layout from './components/Layout';
 // Existing pages
 import Login from './pages/Login';
 import Signup from './pages/Signup';
+import AcceptInvitation from './pages/AcceptInvitation';
 import Dashboard from './pages/Dashboard';
+import Settings from './pages/Settings';
 
 // Contract pages
 import Contracts from './pages/contracts/Contracts';
 import ContractDetail from './pages/contracts/ContractDetail';
+import ContractMembers from './pages/contracts/ContractMembers';
 
 // BOQ pages
 import BOQList from './pages/boq/BOQList';
@@ -193,6 +196,33 @@ function App() {
               </ProtectedRoute>
             }
           />
+
+          {/* Reports Routes - NEW! */}
+          <Route
+            path="/contracts/:contractId/members"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <ContractMembers  />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+           
+          {/* Settings Routes - NEW! */}
+          <Route
+            path="/settings"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <Settings  />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />          
+
+          {/* Settings Routes - NEW! */}
+          <Route path="/accept-invitation" element={<AcceptInvitation />} />
 
           {/* Default redirect */}
           <Route path="/" element={<Navigate to="/dashboard" />} />
