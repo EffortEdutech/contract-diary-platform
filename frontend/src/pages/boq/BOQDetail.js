@@ -1,6 +1,7 @@
 // frontend/src/pages/boq/BOQDetail.js - UPDATED VERSION
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import Breadcrumb from '../../components/common/Breadcrumb'; 
 import { 
   getBOQById, 
   updateBOQStatus, 
@@ -163,6 +164,14 @@ function BOQDetail() {
     return badges[type] || 'bg-gray-100 text-gray-800';
   };
 
+  // ✅ ADD THIS SECTION HERE (4 levels)
+  const breadcrumbItems = [
+    { label: 'Contracts', href: '/contracts', icon: '📄' },
+    { label: contract?.contract_number || 'Loading...', href: `/contracts/${contractId}` },
+    { label: 'BOQ', href: `/contracts/${contractId}/boq` },
+    { label: 'BOQ Details', href: null }
+  ];
+
   // Group items by section
   const getItemsBySection = (sectionId) => {
     return items.filter(item => item.section_id === sectionId);
@@ -185,12 +194,7 @@ function BOQDetail() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="bg-red-50 border border-red-200 rounded-lg p-4">
           <p className="text-red-800">{error}</p>
-          <button
-            onClick={() => navigate(`/contracts/${contractId}/boq`)}
-            className="mt-4 text-red-600 hover:text-red-800"
-          >
-            ← Back to BOQ List
-          </button>
+            <Breadcrumb items={breadcrumbItems} />
         </div>
       </div>
     );
@@ -204,13 +208,11 @@ function BOQDetail() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <Breadcrumb items={breadcrumbItems} />
       {/* Header */}
       <div className="mb-6">
         <div className="flex justify-between items-start">
           <div>
-            <Link to={`/contracts/${contractId}/boq`} className="text-blue-600 hover:text-blue-800 mb-2 inline-block">
-              ← Back to BOQ List
-            </Link>
             <h1 className="text-3xl font-bold text-gray-900">{boq.title}</h1>
             <p className="text-gray-600 mt-1">
               BOQ Number: {boq.boq_number} | Status:{' '}

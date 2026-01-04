@@ -1,12 +1,13 @@
-import { useState, useEffect } from 'react'
-import { useNavigate, useSearchParams, Link } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
+// AcceptInvitation.js - FIXED VERSION
+// Bug fixed: Added email field to user_profiles insert
+import React, { useState, useEffect } from 'react';
+import { useSearchParams, useNavigate, Link } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
 
 // ============================================
-// ALL FUNCTIONS IN ONE FILE - NO IMPORTS NEEDED
+// HELPER FUNCTIONS
 // ============================================
 
-// Get invitation by token
 const getInvitationByToken = async (token) => {
   try {
     const { data, error } = await supabase
@@ -15,30 +16,35 @@ const getInvitationByToken = async (token) => {
       .eq('token', token)
       .eq('status', 'pending')
       .gt('expires_at', new Date().toISOString())
-      .single()
+      .single();
 
     if (error) {
       if (error.code === 'PGRST116') {
-        throw new Error('Invalid or expired invitation')
+        throw new Error('Invalid or expired invitation');
       }
-      throw error
+      throw error;
     }
-    return data
-  } catch (error) {
-    console.error('Error getting invitation:', error)
-    throw error
-  }
-}
 
-// Accept invitation - COMPLETE VERSION
+    return data;
+  } catch (error) {
+    console.error('Error getting invitation:', error);
+    throw error;
+  }
+};
+
 const acceptInvitation = async (token, password) => {
   try {
-    const invitation = await getInvitationByToken(token)
+    console.log('🔄 Starting invitation acceptance...');
+    
+    // Step 1: Get invitation details
+    const invitation = await getInvitationByToken(token);
+    console.log('✅ Invitation found:', invitation.email);
 
-    let userId = null
-    let isNewUser = false
+    let userId;
+    let isNewUser = true;
 
-    // Try to create new account first
+    // Step 2: Try to create new user
+    console.log('🔄 Creating auth user...');
     const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
       email: invitation.email,
       password: password,
@@ -47,43 +53,46 @@ const acceptInvitation = async (token, password) => {
           full_name: invitation.full_name
         }
       }
-    })
+    });
 
-    // Handle different scenarios
-    if (signUpError) {
-      if (signUpError.message.includes('already registered') || signUpError.message.includes('User already registered')) {
-        console.log('User already exists, attempting login...')
-        
-        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-          email: invitation.email,
-          password: password
-        })
+    // Handle existing user
+    if (signUpError && signUpError.message.includes('already registered')) {
+      console.log('⚠️ User already exists, attempting sign in...');
+      
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        email: invitation.email,
+        password: password
+      });
 
-        if (signInError) {
-          throw new Error('This email is already registered. Please use the correct password or contact your administrator.')
+      if (signInError) {
+        if (signInError.message.includes('Invalid')) {
+          throw new Error('This email is already registered. Please use the correct password or contact your administrator.');
         }
-
-        userId = signInData.user.id
-        isNewUser = false
-        console.log('✅ Logged in with existing account')
-      } else {
-        throw signUpError
+        throw signInError;
       }
+
+      userId = signInData.user.id;
+      isNewUser = false;
+      console.log('✅ Logged in with existing account');
+    } else if (signUpError) {
+      throw signUpError;
     } else {
-      userId = signUpData.user.id
-      isNewUser = true
-      console.log('✅ New user account created')
+      userId = signUpData.user.id;
+      isNewUser = true;
+      console.log('✅ New user account created');
     }
 
     if (!userId) {
-      throw new Error('Failed to get user ID')
+      throw new Error('Failed to get user ID');
     }
 
-    // UPSERT user profile
+    // Step 3: UPSERT user profile (with email)
+    console.log('🔄 Creating/updating user profile...');
     const { error: profileError } = await supabase
       .from('user_profiles')
       .upsert({
         id: userId,
+        email: invitation.email, // ✅ Store email for display
         role: invitation.company_type,
         user_role: invitation.user_role,
         position: invitation.position,
@@ -94,25 +103,19 @@ const acceptInvitation = async (token, password) => {
         ssm_registration: invitation.ssm_registration
       }, {
         onConflict: 'id'
-      })
+      });
 
     if (profileError) {
-      console.error('Error creating/updating profile:', profileError)
-      throw new Error('Failed to create user profile')
+      console.error('❌ Profile error:', profileError);
+      console.error('Error details:', profileError.message);
+      throw new Error(`Failed to create user profile: ${profileError.message}`);
     }
 
-    console.log('✅ User profile ' + (isNewUser ? 'created' : 'updated'))
+    console.log('✅ User profile ' + (isNewUser ? 'created' : 'updated'));
 
-    // Get user's organization_id for contract_members
-    const { data: profileData } = await supabase
-      .from('user_profiles')
-      .select('organization_id')
-      .eq('id', userId)
-      .single()
-
-    // ADD USER TO CONTRACT (if contract_id exists)
+    // Step 4: Add user to contract (if contract_id exists)
     if (invitation.contract_id) {
-      console.log('Adding user to contract:', invitation.contract_id)
+      console.log('🔄 Adding user to contract:', invitation.contract_id);
       
       // Check if already a member
       const { data: existingMember } = await supabase
@@ -120,7 +123,7 @@ const acceptInvitation = async (token, password) => {
         .select('id')
         .eq('contract_id', invitation.contract_id)
         .eq('user_id', userId)
-        .maybeSingle()
+        .maybeSingle();
 
       if (!existingMember) {
         const { error: memberError } = await supabase
@@ -128,129 +131,141 @@ const acceptInvitation = async (token, password) => {
           .insert({
             contract_id: invitation.contract_id,
             user_id: userId,
-            organization_id: profileData?.organization_id || null,
-            member_role: 'member',
+            organization_id: invitation.organization_id,
+            member_role: invitation.user_role || 'member', // Use invited role
             invited_by: invitation.invited_by,
             invited_at: new Date().toISOString(),
             invitation_status: 'active'
-          })
+          });
 
         if (memberError) {
-          console.error('❌ Error adding to contract:', memberError)
-          console.error('Code:', memberError.code)
-          console.error('Details:', memberError.details)
-          console.error('Message:', memberError.message)
+          console.error('❌ Error adding to contract:', memberError);
+          console.error('Code:', memberError.code);
+          console.error('Details:', memberError.details);
           
-          // SHOW WARNING to user but don't block signup
-          alert('⚠️ Account created but failed to add to contract team. Contact your administrator to add you manually.')
+          // Show warning but don't block signup
+          alert('⚠️ Account created but failed to add to contract team. Contact your administrator to add you manually.');
         } else {
-          console.log('✅ Added to contract team successfully!')
+          console.log('✅ Added to contract team successfully!');
         }
       } else {
-        console.log('✅ Already a member of this contract')
+        console.log('✅ Already a member of this contract');
       }
     }
 
-    // Mark invitation as accepted
-    await supabase
+    // Step 5: Mark invitation as accepted
+    console.log('🔄 Marking invitation as accepted...');
+    const { error: updateError } = await supabase
       .from('invitations')
       .update({
         status: 'accepted',
         accepted_at: new Date().toISOString()
       })
-      .eq('token', token)
+      .eq('token', token);
 
-    console.log('✅ Invitation accepted successfully!')
+    if (updateError) {
+      console.error('⚠️ Warning: Could not update invitation status:', updateError);
+      // Don't throw - user account is created, this is just metadata
+    } else {
+      console.log('✅ Invitation marked as accepted');
+    }
+
+    console.log('🎉 Invitation accepted successfully!');
     
-    return { id: userId, isNewUser: isNewUser, contractId: invitation.contract_id }
+    return { 
+      id: userId, 
+      isNewUser: isNewUser, 
+      contractId: invitation.contract_id 
+    };
   } catch (error) {
-    console.error('Error accepting invitation:', error)
-    throw error
+    console.error('❌ Error accepting invitation:', error);
+    throw error;
   }
-}
+};
 
 // ============================================
 // MAIN COMPONENT
 // ============================================
 
 export default function AcceptInvitation() {
-  const [searchParams] = useSearchParams()
-  const navigate = useNavigate()
-  const token = searchParams.get('token')
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const token = searchParams.get('token');
 
-  const [invitation, setInvitation] = useState(null)
-  const [password, setPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
-  const [loading, setLoading] = useState(true)
-  const [accepting, setAccepting] = useState(false)
-  const [error, setError] = useState(null)
+  const [invitation, setInvitation] = useState(null);
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [accepting, setAccepting] = useState(false);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     if (token) {
-      loadInvitation()
+      loadInvitation();
     } else {
-      setError('Invalid invitation link')
-      setLoading(false)
+      setError('Invalid invitation link');
+      setLoading(false);
     }
-  }, [token])
+  }, [token]);
 
   const loadInvitation = async () => {
     try {
-      const data = await getInvitationByToken(token)
-      setInvitation(data)
-      setLoading(false)
+      const data = await getInvitationByToken(token);
+      setInvitation(data);
+      setLoading(false);
     } catch (err) {
-      setError(err.message || 'Invalid or expired invitation')
-      setLoading(false)
+      setError(err.message || 'Invalid or expired invitation');
+      setLoading(false);
     }
-  }
+  };
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
-    setError(null)
+    e.preventDefault();
+    setError(null);
 
     if (password.length < 6) {
-      setError('Password must be at least 6 characters')
-      return
+      setError('Password must be at least 6 characters');
+      return;
     }
 
     if (password !== confirmPassword) {
-      setError('Passwords do not match')
-      return
+      setError('Passwords do not match');
+      return;
     }
 
-    setAccepting(true)
+    setAccepting(true);
 
     try {
-      const result = await acceptInvitation(token, password)
+      const result = await acceptInvitation(token, password);
       
       if (result.isNewUser) {
-        alert('Account created successfully! You can now sign in.')
+        alert('✅ Account created successfully! You can now sign in.');
       } else {
-        alert('Welcome back! Your account has been updated with the invitation details.')
+        alert('✅ Welcome back! Your account has been updated with the invitation details.');
       }
       
-      navigate('/login')
+      navigate('/login');
     } catch (err) {
-      setError(err.message || 'Failed to accept invitation. Please try again.')
+      setError(err.message || 'Failed to accept invitation. Please try again.');
     } finally {
-      setAccepting(false)
+      setAccepting(false);
     }
-  }
+  };
 
   const getRoleBadge = (role) => {
     const roles = {
       owner: { label: 'Owner', color: 'blue', icon: '👑' },
       admin: { label: 'Admin', color: 'purple', icon: '⚡' },
       editor: { label: 'Editor', color: 'green', icon: '✏️' },
+      viewer: { label: 'Viewer', color: 'gray', icon: '👁️' },
       submitter: { label: 'Submitter', color: 'yellow', icon: '📝' },
-      reviewer: { label: 'Reviewer', color: 'orange', icon: '👁️' },
+      reviewer: { label: 'Reviewer', color: 'orange', icon: '🔍' },
       approver: { label: 'Approver', color: 'indigo', icon: '✓' },
       auditor: { label: 'Auditor', color: 'gray', icon: '📊' },
       readonly: { label: 'Read-Only', color: 'gray', icon: '👀' }
-    }
-    return roles[role] || { label: role, color: 'gray', icon: '👤' }
-  }
+    };
+    return roles[role] || { label: role, color: 'gray', icon: '👤' };
+  };
 
   if (loading) {
     return (
@@ -260,7 +275,7 @@ export default function AcceptInvitation() {
           <p className="text-gray-600">Loading invitation...</p>
         </div>
       </div>
-    )
+    );
   }
 
   if (error && !invitation) {
@@ -284,10 +299,10 @@ export default function AcceptInvitation() {
           </div>
         </div>
       </div>
-    )
+    );
   }
 
-  const roleBadge = getRoleBadge(invitation.user_role)
+  const roleBadge = getRoleBadge(invitation.user_role);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
@@ -315,19 +330,18 @@ export default function AcceptInvitation() {
               <p className="text-sm text-gray-900">{invitation.full_name}</p>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-medium text-gray-500">Position</label>
+              <p className="text-sm text-gray-900">{invitation.position}</p>
+            </div>
+
+            <div>
+              <label className="text-xs font-medium text-gray-500">Role</label>
               <div>
-                <label className="text-xs font-medium text-gray-500">Position</label>
-                <p className="text-sm text-gray-900">{invitation.position}</p>
-              </div>
-              <div>
-                <label className="text-xs font-medium text-gray-500">Role</label>
-                <p className="text-sm text-gray-900">
-                  <span className="inline-flex items-center">
-                    <span className="mr-1">{roleBadge.icon}</span>
-                    {roleBadge.label}
-                  </span>
-                </p>
+                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-${roleBadge.color}-100 text-${roleBadge.color}-800`}>
+                  <span className="mr-1">{roleBadge.icon}</span>
+                  {roleBadge.label}
+                </span>
               </div>
             </div>
 
@@ -338,70 +352,86 @@ export default function AcceptInvitation() {
           </div>
         </div>
 
-        <form className="mt-8 space-y-6 bg-white rounded-lg shadow p-6" onSubmit={handleSubmit}>
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Set Your Password</h3>
+        <form onSubmit={handleSubmit} className="mt-8 space-y-6">
+          <div className="bg-white rounded-lg shadow p-6 border border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Set Your Password</h3>
+            
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                  Password
+                </label>
+                <input
+                  id="password"
+                  name="password"
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
+                  placeholder="Enter password (min 6 characters)"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="confirm-password" className="block text-sm font-medium text-gray-700">
+                  Confirm Password
+                </label>
+                <input
+                  id="confirm-password"
+                  name="confirm-password"
+                  type="password"
+                  required
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
+                  placeholder="Confirm password"
+                />
+              </div>
+            </div>
+          </div>
 
           {error && (
-            <div className="rounded-md bg-red-50 p-4">
-              <p className="text-sm text-red-800">{error}</p>
+            <div className="rounded-md bg-red-50 border border-red-200 p-4">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-red-800">{error}</h3>
+                </div>
+              </div>
             </div>
           )}
 
-          <div className="space-y-4">
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                Password <span className="text-red-500">*</span>
-              </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                required
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                placeholder="At least 6 characters"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
-
-            <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
-                Confirm Password <span className="text-red-500">*</span>
-              </label>
-              <input
-                id="confirmPassword"
-                name="confirmPassword"
-                type="password"
-                required
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Re-enter password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <div>
-            <button
-              type="submit"
-              disabled={accepting}
-              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {accepting ? 'Creating Account...' : 'Create Account & Sign In'}
-            </button>
-          </div>
-
-          <p className="text-xs text-gray-500 text-center">
-            By creating an account, you agree to the Terms of Service and Privacy Policy
-          </p>
+          <button
+            type="submit"
+            disabled={accepting}
+            className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {accepting ? (
+              <>
+                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+                Accepting...
+              </>
+            ) : (
+              'Accept Invitation'
+            )}
+          </button>
         </form>
 
-        <div className="text-sm text-center">
+        <div className="text-center text-sm text-gray-600">
+          Already have an account?{' '}
           <Link to="/login" className="font-medium text-blue-600 hover:text-blue-500">
-            Already have an account? Sign in
+            Sign in
           </Link>
         </div>
       </div>
     </div>
-  )
+  );
 }

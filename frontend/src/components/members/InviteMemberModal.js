@@ -1,386 +1,357 @@
-import { useState, useEffect } from 'react'
-import { createInvitation } from '../../services/invitationService'
-import { supabase } from '../../lib/supabase'
+// ============================================
+// UPDATED: InviteMemberModal.js
+// Session 13 - RBAC Migration
+// ============================================
+// CHANGES:
+// - user_role field in invitation = contract member_role (not system role)
+// - Clear separation: company_type vs user_role (contract role)
+// - Updated role selection with MEMBER_ROLES
+// ============================================
 
-export default function InviteMemberModal({ isOpen, onClose, contractId = null }) {
-  const [organizations, setOrganizations] = useState([])
+import React, { useState } from 'react';
+import { COMPANY_TYPES, COMPANY_TYPE_LABELS, MEMBER_ROLES, MEMBER_ROLE_LABELS, MEMBER_ROLE_DESCRIPTIONS } from '../../utils/constants';
+import { getAvailableRoles } from '../../utils/permissions';
+
+const InviteMemberModal = ({ isOpen, onClose, onInvite, contractId, currentUserRole }) => {
   const [formData, setFormData] = useState({
     email: '',
-    fullName: '',
+    full_name: '',
     position: '',
     phone: '',
-    organizationId: '',
-    organizationName: '',
-    companyType: 'subcontractor',
-    userRole: 'editor',
-    cidbRegistration: '',
-    ssmRegistration: '',
-    contractId: contractId
-  })
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(null)
-  const [invitationLink, setInvitationLink] = useState(null)
-
-  // Role definitions
-  const roles = [
-    { value: 'owner', label: 'Owner', icon: '👑', description: 'Super admin' },
-    { value: 'admin', label: 'Admin', icon: '⚡', description: 'Full control' },
-    { value: 'editor', label: 'Editor', icon: '✏️', description: 'Create & update' },
-    { value: 'submitter', label: 'Submitter', icon: '📝', description: 'Submit only' },
-    { value: 'reviewer', label: 'Reviewer', icon: '👁️', description: 'Review & comment' },
-    { value: 'approver', label: 'Approver', icon: '✓', description: 'Can approve' },
-    { value: 'auditor', label: 'Auditor', icon: '📊', description: 'Read + export' },
-    { value: 'readonly', label: 'Read-Only', icon: '👀', description: 'View only' }
-  ]
-
-  useEffect(() => {
-    if (isOpen) {
-      loadOrganizations()
-    }
-  }, [isOpen])
-
-  const loadOrganizations = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('organizations')
-        .select('id, name, organization_type, cidb_grade')
-        .order('name')
-
-      if (error) throw error
-      setOrganizations(data || [])
-    } catch (err) {
-      console.error('Error loading organizations:', err)
-    }
-  }
+    company_type: 'subcontractor', // Company identity
+    user_role: 'editor', // Contract role they'll get
+    cidb_registration: '',
+    ssm_registration: ''
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   const handleChange = (e) => {
-    const { name, value } = e.target
-    
-    // If organization changes, update organization name
-    if (name === 'organizationId') {
-      const selectedOrg = organizations.find(org => org.id === value)
-      setFormData({
-        ...formData,
-        organizationId: value,
-        organizationName: selectedOrg?.name || ''
-      })
-    } else {
-      setFormData({
-        ...formData,
-        [name]: value
-      })
-    }
-  }
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
+    setError(null);
+  };
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
-    setError(null)
-    setLoading(true)
+    e.preventDefault();
+    setError(null);
 
-    try {
-      const invitation = await createInvitation(formData)
-      setInvitationLink(invitation.invitationLink)
-      
-      // Don't close modal yet - show the invitation link
-    } catch (err) {
-      setError(err.message || 'Failed to create invitation')
-    } finally {
-      setLoading(false)
+    // Validation
+    if (!formData.email || !formData.full_name || !formData.position) {
+      setError('Please fill in all required fields');
+      return;
     }
-  }
 
-  const handleCopyLink = () => {
-    navigator.clipboard.writeText(invitationLink)
-    alert('Invitation link copied to clipboard!')
-  }
+    if (!formData.email.includes('@')) {
+      setError('Please enter a valid email address');
+      return;
+    }
 
-  const handleClose = () => {
+    setLoading(true);
+    try {
+      await onInvite({
+        ...formData,
+        contract_id: contractId
+      });
+      
+      // Reset form
+      setFormData({
+        email: '',
+        full_name: '',
+        position: '',
+        phone: '',
+        company_type: 'subcontractor',
+        user_role: 'editor',
+        cidb_registration: '',
+        ssm_registration: ''
+      });
+      onClose();
+    } catch (err) {
+      setError(err.message || 'Failed to send invitation');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCancel = () => {
     setFormData({
       email: '',
-      fullName: '',
+      full_name: '',
       position: '',
       phone: '',
-      organizationId: '',
-      organizationName: '',
-      companyType: 'subcontractor',
-      userRole: 'editor',
-      cidbRegistration: '',
-      ssmRegistration: '',
-      contractId: contractId
-    })
-    setInvitationLink(null)
-    setError(null)
-    onClose()
-  }
+      company_type: 'subcontractor',
+      user_role: 'editor',
+      cidb_registration: '',
+      ssm_registration: ''
+    });
+    setError(null);
+    onClose();
+  };
 
-  if (!isOpen) return null
+  // Get roles that current user can assign
+  const availableRoles = getAvailableRoles(currentUserRole || MEMBER_ROLES.OWNER);
 
-  // Show success screen with invitation link
-  if (invitationLink) {
-    return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6">
-          <div className="text-center">
-            <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
-              <svg className="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-            </div>
-            
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              Invitation Created Successfully!
-            </h3>
-            
-            <p className="text-sm text-gray-500 mb-4">
-              Send this link to <strong>{formData.email}</strong>
-            </p>
+  if (!isOpen) return null;
 
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-              <p className="text-xs text-blue-800 mb-2">Invitation Link:</p>
-              <p className="text-sm text-blue-900 font-mono break-all bg-white p-2 rounded border border-blue-300">
-                {invitationLink}
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto">
+      <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+        {/* Background overlay */}
+        <div 
+          className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75"
+          onClick={handleCancel}
+        ></div>
+
+        {/* Modal panel */}
+        <div className="inline-block align-bottom bg-white rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full sm:p-6">
+          
+          {/* Header */}
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-lg font-medium text-gray-900">
+                Invite New Member
+              </h3>
+              <p className="mt-1 text-sm text-gray-500">
+                Send an invitation to join this contract
               </p>
             </div>
-
-            <div className="flex space-x-3">
-              <button
-                onClick={handleCopyLink}
-                className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center justify-center"
-              >
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                </svg>
-                Copy Link
-              </button>
-              <button
-                onClick={handleClose}
-                className="flex-1 bg-gray-200 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-300"
-              >
-                Done
-              </button>
-            </div>
-
-            <p className="text-xs text-gray-500 mt-4">
-              💡 Note: This link expires in 7 days. The invited user will set their password when they accept.
-            </p>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  // Show invitation form
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-bold text-gray-900">Invite Team Member</h2>
             <button
-              onClick={handleClose}
-              className="text-gray-400 hover:text-gray-600"
+              onClick={handleCancel}
+              className="text-gray-400 hover:text-gray-500"
             >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
           </div>
 
-          {error && (
-            <div className="mb-4 bg-red-50 border border-red-200 rounded-md p-3">
-              <p className="text-sm text-red-800">{error}</p>
-            </div>
-          )}
-
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Email */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Email Address <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="email"
-                name="email"
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                placeholder="member@company.com"
-                value={formData.email}
-                onChange={handleChange}
-              />
-            </div>
+            
+            {/* Personal Information */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Email */}
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Email Address *
+                </label>
+                <input
+                  type="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  placeholder="user@example.com"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  required
+                />
+              </div>
 
-            {/* Full Name */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Full Name <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                name="fullName"
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Ahmad bin Ali"
-                value={formData.fullName}
-                onChange={handleChange}
-              />
-            </div>
-
-            {/* Position & Phone */}
-            <div className="grid grid-cols-2 gap-4">
+              {/* Full Name */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Position <span className="text-red-500">*</span>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Full Name *
+                </label>
+                <input
+                  type="text"
+                  name="full_name"
+                  value={formData.full_name}
+                  onChange={handleChange}
+                  placeholder="John Doe"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  required
+                />
+              </div>
+
+              {/* Position */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Position / Title *
                 </label>
                 <input
                   type="text"
                   name="position"
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Site Engineer"
                   value={formData.position}
                   onChange={handleChange}
+                  placeholder="e.g., Site Engineer"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  required
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Phone
+
+              {/* Phone */}
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Phone Number
                 </label>
                 <input
                   type="tel"
                   name="phone"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="+60123456789"
                   value={formData.phone}
                   onChange={handleChange}
+                  placeholder="+60123456789"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
-            </div>
-
-            {/* Organization */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Organization <span className="text-red-500">*</span>
-              </label>
-              <select
-                name="organizationId"
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                value={formData.organizationId}
-                onChange={handleChange}
-              >
-                <option value="">-- Select Organization --</option>
-                {organizations.map(org => (
-                  <option key={org.id} value={org.id}>
-                    {org.name} {org.cidb_grade && `(${org.cidb_grade})`}
-                  </option>
-                ))}
-              </select>
             </div>
 
             {/* Company Type */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Company Type <span className="text-red-500">*</span>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Company Type *
               </label>
               <select
-                name="companyType"
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                value={formData.companyType}
+                name="company_type"
+                value={formData.company_type}
                 onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                required
               >
-                <option value="main_contractor">Main Contractor</option>
-                <option value="subcontractor">Subcontractor</option>
-                <option value="consultant">Consultant</option>
-                <option value="supplier">Supplier</option>
+                {Object.entries(COMPANY_TYPES).map(([key, value]) => (
+                  <option key={value} value={value}>
+                    {COMPANY_TYPE_LABELS[value]}
+                  </option>
+                ))}
               </select>
+              <p className="mt-1 text-xs text-gray-500">
+                This defines their business identity (Main Contractor, Subcontractor, etc.)
+              </p>
             </div>
 
-            {/* Permission Role */}
+            {/* Contract Role */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Permission Role <span className="text-red-500">*</span>
+                Contract Role *
               </label>
-              <div className="grid grid-cols-2 gap-2">
-                {roles.map(role => (
-                  <label
-                    key={role.value}
-                    className={`relative flex cursor-pointer rounded-lg border p-3 focus:outline-none ${
-                      formData.userRole === role.value
-                        ? 'border-blue-600 ring-2 ring-blue-600 bg-blue-50'
-                        : 'border-gray-300 bg-white hover:border-blue-300'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="userRole"
-                      value={role.value}
-                      className="sr-only"
-                      checked={formData.userRole === role.value}
-                      onChange={handleChange}
-                    />
-                    <div className="flex flex-1 items-center">
-                      <span className="text-xl mr-2">{role.icon}</span>
-                      <div className="flex flex-col">
-                        <span className="text-sm font-medium text-gray-900">{role.label}</span>
-                        <span className="text-xs text-gray-500">{role.description}</span>
-                      </div>
-                    </div>
-                  </label>
+              <select
+                name="user_role"
+                value={formData.user_role}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                required
+              >
+                <option value="">Select role...</option>
+                {availableRoles.map((role) => (
+                  <option key={role} value={role}>
+                    {MEMBER_ROLE_LABELS[role]} - {MEMBER_ROLE_DESCRIPTIONS[role]}
+                  </option>
                 ))}
-              </div>
+              </select>
+              <p className="mt-1 text-xs text-gray-500">
+                This determines what they can do on this specific contract
+              </p>
             </div>
 
-            {/* Optional: CIDB & SSM */}
-            <div className="grid grid-cols-2 gap-4">
+            {/* Role Description */}
+            {formData.user_role && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <h4 className="text-sm font-semibold text-blue-900 mb-1">
+                  {MEMBER_ROLE_LABELS[formData.user_role]} Permissions:
+                </h4>
+                <p className="text-xs text-blue-800">
+                  {MEMBER_ROLE_DESCRIPTIONS[formData.user_role]}
+                </p>
+              </div>
+            )}
+
+            {/* Registration Details (Optional) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* CIDB Registration */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   CIDB Registration (Optional)
                 </label>
                 <input
                   type="text"
-                  name="cidbRegistration"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="CIDB Number"
-                  value={formData.cidbRegistration}
+                  name="cidb_registration"
+                  value={formData.cidb_registration}
                   onChange={handleChange}
+                  placeholder="PKK12345678"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
+
+              {/* SSM Registration */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   SSM Registration (Optional)
                 </label>
                 <input
                   type="text"
-                  name="ssmRegistration"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="SSM Number"
-                  value={formData.ssmRegistration}
+                  name="ssm_registration"
+                  value={formData.ssm_registration}
                   onChange={handleChange}
+                  placeholder="123456-A"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
             </div>
 
-            {/* Buttons */}
-            <div className="flex space-x-3 pt-4 border-t">
+            {/* Error Message */}
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <div className="flex items-start space-x-3">
+                  <svg className="w-5 h-5 text-red-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <div className="flex-1">
+                    <h4 className="text-sm font-semibold text-red-900 mb-1">Error</h4>
+                    <p className="text-sm text-red-800">{error}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="flex space-x-3 pt-4">
               <button
                 type="button"
-                onClick={handleClose}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                onClick={handleCancel}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                disabled={loading}
               >
                 Cancel
               </button>
               <button
                 type="submit"
+                className="flex-1 px-4 py-2 border border-transparent rounded-lg text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={loading}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
               >
-                {loading ? 'Creating Invitation...' : 'Create Invitation'}
+                {loading ? (
+                  <span className="flex items-center justify-center">
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Sending Invitation...
+                  </span>
+                ) : (
+                  'Send Invitation'
+                )}
               </button>
             </div>
           </form>
+
+          {/* Info Banner */}
+          <div className="mt-4 bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <p className="text-xs text-yellow-800">
+                  <strong>Note:</strong> An email will be sent to the invitee with a link to create their account. 
+                  The invitation will expire in 7 days.
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
-  )
-}
+  );
+};
+
+export default InviteMemberModal;

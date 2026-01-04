@@ -1,44 +1,83 @@
-// ContractMembers.js - UPDATED: Removed Subcontractors card, simplified to 3 stats
+// ContractMembers.js - COMPLETE WITH ALL ENHANCEMENTS
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import Breadcrumb from '../../components/common/Breadcrumb';
 import MemberCard from '../../components/members/MemberCard';
 import AddMemberModal from '../../components/members/AddMemberModal';
 import InviteMemberModal from '../../components/members/InviteMemberModal';
+import EditMemberRoleModal from '../../components/members/EditMemberRoleModal';
+import PendingInvitationsPanel from '../../components/members/PendingInvitationsPanel';
 import {
   getContractMembers,
   addContractMemberById,
   removeContractMember,
   getMemberStats,
-  isContractOwner
+  isContractOwner,
+  canManageMembers
 } from '../../services/memberService';
 import { supabase } from '../../lib/supabase';
-
 
 const ContractMembers = () => {
   const { contractId } = useParams();
   const navigate = useNavigate();
 
+  // Basic state
   const [members, setMembers] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isOwner, setIsOwner] = useState(false);
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const [contract, setContract] = useState(null);
+  
+  // Modal state
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [showEditRoleModal, setShowEditRoleModal] = useState(false);
+  
+  // Enhanced state
+  const [selectedMember, setSelectedMember] = useState(null);
+  const [currentUserRole, setCurrentUserRole] = useState(null);
+  const [canManage, setCanManage] = useState(false);
 
+  // Load data on mount
   useEffect(() => {
     loadData();
   }, [contractId]);
+
+  // Load current user's role and permissions
+  useEffect(() => {
+    const loadUserPermissions = async () => {
+      try {
+        // Check if user can manage members
+        const canManageValue = await canManageMembers(contractId);
+        setCanManage(canManageValue);
+        
+        // Get current user's role
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user && members.length > 0) {
+          const myMember = members.find(m => m.user_id === user.id);
+          setCurrentUserRole(myMember?.member_role);
+        }
+      } catch (err) {
+        console.error('Error loading user permissions:', err);
+      }
+    };
+    
+    if (members.length > 0) {
+      loadUserPermissions();
+    }
+  }, [contractId, members]);
 
   const loadData = async () => {
     try {
       setLoading(true);
       setError(null);
 
+      // Check if user is owner
       const ownerStatus = await isContractOwner(contractId);
       setIsOwner(ownerStatus);
 
+      // Load contract details
       const { data: contractData } = await supabase
         .from('contracts')
         .select('*')
@@ -46,9 +85,11 @@ const ContractMembers = () => {
         .single();
       setContract(contractData);
 
+      // Load members (filter out removed)
       const membersData = await getContractMembers(contractId);
       setMembers(membersData.filter(m => m.invitation_status !== 'removed'));
 
+      // Load statistics
       const statsData = await getMemberStats(contractId);
       setStats(statsData);
 
@@ -88,6 +129,26 @@ const ContractMembers = () => {
     }
   };
 
+  // NEW: Handle edit role
+  const handleEditRole = (member) => {
+    setSelectedMember(member);
+    setShowEditRoleModal(true);
+  };
+
+  // NEW: Handle role update success
+  const handleRoleUpdateSuccess = () => {
+    loadData();
+    setShowEditRoleModal(false);
+    setSelectedMember(null);
+  };
+
+  // Build breadcrumb navigation
+  const breadcrumbItems = [
+    { label: 'Contracts', href: '/contracts', icon: '📄' },
+    { label: contract?.contract_number || 'Loading...', href: `/contracts/${contractId}` },
+    { label: 'Team Members', href: null }
+  ];
+  
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -122,24 +183,17 @@ const ContractMembers = () => {
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Breadcrumb */}
+        <Breadcrumb items={breadcrumbItems} />
+
         {/* Header */}
         <div className="mb-6">
-          <button
-            onClick={() => navigate(`/contracts/${contractId}`)}
-            className="flex items-center text-gray-600 hover:text-gray-900 mb-4"
-          >
-            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            Back to Contract
-          </button>
-
           <div className="flex items-start justify-between">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">Team Members</h1>
               {contract && (
                 <p className="mt-1 text-sm text-gray-500">
-                  {contract.project_name} • {contract.contract_number}
+                  {contract.contract_number} • {contract.project_name}
                 </p>
               )}
             </div>
@@ -157,7 +211,7 @@ const ContractMembers = () => {
           </div>
         </div>
 
-        {/* Stats Cards - SIMPLIFIED TO 3 CARDS */}
+        {/* Stats Cards */}
         {stats && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
             {/* Total Members */}
@@ -242,7 +296,9 @@ const ContractMembers = () => {
                     key={member.id}
                     member={member}
                     onRemove={handleRemoveMember}
+                    onEditRole={handleEditRole}
                     isOwner={isOwner}
+                    currentUserRole={currentUserRole}
                   />
                 ))}
               </div>
@@ -274,6 +330,16 @@ const ContractMembers = () => {
             </div>
           </div>
         )}
+
+        {/* NEW: Pending Invitations Panel */}
+        {canManage && (
+          <div className="mt-8">
+            <PendingInvitationsPanel 
+              contractId={contractId}
+              onRefresh={loadData}
+            />
+          </div>
+        )}
       </div>
 
       {/* Invite Member Modal */}
@@ -290,6 +356,15 @@ const ContractMembers = () => {
         onClose={() => setIsModalOpen(false)}
         onAddMember={handleAddMember}
         contractId={contractId}
+      />
+
+      {/* NEW: Edit Member Role Modal */}
+      <EditMemberRoleModal
+        isOpen={showEditRoleModal}
+        onClose={() => setShowEditRoleModal(false)}
+        member={selectedMember}
+        currentUserRole={currentUserRole}
+        onSuccess={handleRoleUpdateSuccess}
       />
     </div>
   );

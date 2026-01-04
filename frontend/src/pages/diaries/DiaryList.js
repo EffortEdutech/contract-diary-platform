@@ -16,6 +16,8 @@ import {
 } from '../../services/diaryService';
 import { supabase } from '../../lib/supabase';
 
+import Breadcrumb from '../../components/common/Breadcrumb';
+
 const DiaryList = () => {
   const { contractId } = useParams();
   const navigate = useNavigate();
@@ -174,6 +176,13 @@ const DiaryList = () => {
     return today.toISOString().split('T')[0];
   };
 
+  // Build breadcrumb navigation
+  const breadcrumbItems = [
+    { label: 'Contracts', href: '/contracts', icon: '📄' },
+    { label: contract?.contract_number || 'Loading...', href: `/contracts/${contractId}` },  // ✅ NEW
+    { label: 'Daily Diaries', href: null }
+  ];    
+
   // ============================================
   // RENDER
   // ============================================
@@ -188,19 +197,11 @@ const DiaryList = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <Breadcrumb items={breadcrumbItems} />
       {/* Header */}
       <div className="mb-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
           <div className="mb-4 sm:mb-0">
-            <button
-              onClick={() => navigate(`/contracts/${contractId}`)}
-              className="text-blue-600 hover:text-blue-800 mb-2 flex items-center text-sm"
-            >
-              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-              </svg>
-              Back to Contract
-            </button>
             <h1 className="text-3xl font-bold text-gray-900">Daily Diaries</h1>
             {contract && (
               <p className="text-sm text-gray-600 mt-1">{contract.project_name}</p>

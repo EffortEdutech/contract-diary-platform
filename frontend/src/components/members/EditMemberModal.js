@@ -1,25 +1,34 @@
 // ============================================
-// UPDATED: AddMemberModal.js
+// UPDATED: EditMemberModal.js
 // Session 13 - RBAC Migration
 // ============================================
 // CHANGES:
-// - Role dropdown now uses MEMBER_ROLES (contract roles)
-// - Shows available roles based on current user's role
-// - Clear role descriptions for each option
+// - Edits member_role (contract role) only
+// - No user_role references
+// - Uses MEMBER_ROLES constants
 // ============================================
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MEMBER_ROLES, MEMBER_ROLE_LABELS, MEMBER_ROLE_DESCRIPTIONS } from '../../utils/constants';
 import { getAvailableRoles } from '../../utils/permissions';
 
-const AddMemberModal = ({ isOpen, onClose, onAdd, currentUserRole }) => {
+const EditMemberModal = ({ isOpen, onClose, onUpdate, member, currentUserRole }) => {
   const [formData, setFormData] = useState({
-    userId: '',
-    memberRole: 'editor', // Default to editor
+    memberRole: '',
     tradeScope: ''
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  // Populate form when member changes
+  useEffect(() => {
+    if (member) {
+      setFormData({
+        memberRole: member.member_role || '',
+        tradeScope: member.trade_scope || ''
+      });
+    }
+  }, [member]);
 
   const handleChange = (e) => {
     setFormData({
@@ -33,28 +42,26 @@ const AddMemberModal = ({ isOpen, onClose, onAdd, currentUserRole }) => {
     e.preventDefault();
     setError(null);
 
-    if (!formData.userId) {
-      setError('Please enter a user ID');
-      return;
-    }
-
     if (!formData.memberRole) {
       setError('Please select a role');
       return;
     }
 
+    // Prevent changing owner role
+    if (member.member_role === MEMBER_ROLES.OWNER && formData.memberRole !== MEMBER_ROLES.OWNER) {
+      setError('Cannot change the owner role. Transfer ownership first.');
+      return;
+    }
+
     setLoading(true);
     try {
-      await onAdd(formData);
-      // Reset form
-      setFormData({
-        userId: '',
-        memberRole: 'editor',
-        tradeScope: ''
+      await onUpdate(member.id, {
+        member_role: formData.memberRole,
+        trade_scope: formData.tradeScope || null
       });
       onClose();
     } catch (err) {
-      setError(err.message || 'Failed to add member');
+      setError(err.message || 'Failed to update member');
     } finally {
       setLoading(false);
     }
@@ -62,9 +69,8 @@ const AddMemberModal = ({ isOpen, onClose, onAdd, currentUserRole }) => {
 
   const handleCancel = () => {
     setFormData({
-      userId: '',
-      memberRole: 'editor',
-      tradeScope: ''
+      memberRole: member?.member_role || '',
+      tradeScope: member?.trade_scope || ''
     });
     setError(null);
     onClose();
@@ -72,8 +78,13 @@ const AddMemberModal = ({ isOpen, onClose, onAdd, currentUserRole }) => {
 
   // Get roles that current user can assign
   const availableRoles = getAvailableRoles(currentUserRole || MEMBER_ROLES.OWNER);
+  
+  // Add current role if not in available roles (so they can keep it)
+  const selectableRoles = member?.member_role && !availableRoles.includes(member.member_role)
+    ? [...availableRoles, member.member_role]
+    : availableRoles;
 
-  if (!isOpen) return null;
+  if (!isOpen || !member) return null;
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
@@ -90,7 +101,7 @@ const AddMemberModal = ({ isOpen, onClose, onAdd, currentUserRole }) => {
           {/* Header */}
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-medium text-gray-900">
-              Add Team Member
+              Edit Member Role
             </h3>
             <button
               onClick={handleCancel}
@@ -104,47 +115,72 @@ const AddMemberModal = ({ isOpen, onClose, onAdd, currentUserRole }) => {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             
-            {/* User ID Input */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                User ID *
-              </label>
-              <input
-                type="text"
-                name="userId"
-                value={formData.userId}
-                onChange={handleChange}
-                placeholder="Enter user's ID (UUID)"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
-                required
-              />
-              <p className="mt-1 text-xs text-gray-500">
-                💡 User can find their ID in Settings → Profile
-              </p>
+            {/* Member Information (Read-only) */}
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+              <h4 className="text-sm font-medium text-gray-900 mb-3">Member Information</h4>
+              <dl className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <dt className="text-gray-500">Organization:</dt>
+                  <dd className="text-gray-900 font-medium">
+                    {member.user?.organization_name || 'N/A'}
+                  </dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-gray-500">Position:</dt>
+                  <dd className="text-gray-900">{member.user?.position || 'N/A'}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-gray-500">Company Type:</dt>
+                  <dd className="text-gray-900">
+                    {member.user?.role === 'main_contractor' && '🏗️ Main Contractor'}
+                    {member.user?.role === 'subcontractor' && '👷 Subcontractor'}
+                    {member.user?.role === 'consultant' && '📋 Consultant'}
+                    {member.user?.role === 'supplier' && '🚚 Supplier'}
+                  </dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-gray-500">Current Role:</dt>
+                  <dd className="text-gray-900 font-medium">
+                    {MEMBER_ROLE_LABELS[member.member_role]}
+                  </dd>
+                </div>
+              </dl>
             </div>
 
-            {/* Member Role Selection */}
+            {/* Contract Role Selection */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Contract Role *
+                New Contract Role *
               </label>
               <select
                 name="memberRole"
                 value={formData.memberRole}
                 onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                disabled={member.member_role === MEMBER_ROLES.OWNER}
+                className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                  member.member_role === MEMBER_ROLES.OWNER ? 'bg-gray-50 cursor-not-allowed' : ''
+                }`}
                 required
               >
                 <option value="">Select role...</option>
-                {availableRoles.map((role) => (
+                {selectableRoles.map((role) => (
                   <option key={role} value={role}>
                     {MEMBER_ROLE_LABELS[role]} - {MEMBER_ROLE_DESCRIPTIONS[role]}
                   </option>
                 ))}
               </select>
-              <p className="mt-1 text-xs text-gray-500">
-                This determines what they can do on this contract
-              </p>
+              
+              {member.member_role === MEMBER_ROLES.OWNER && (
+                <p className="mt-2 text-xs text-yellow-700 bg-yellow-50 border border-yellow-200 rounded p-2">
+                  ⚠️ Cannot change owner role. To transfer ownership, please contact system administrator.
+                </p>
+              )}
+              
+              {member.member_role !== MEMBER_ROLES.OWNER && (
+                <p className="mt-1 text-xs text-gray-500">
+                  This determines what they can do on this contract
+                </p>
+              )}
             </div>
 
             {/* Role Description */}
@@ -153,12 +189,12 @@ const AddMemberModal = ({ isOpen, onClose, onAdd, currentUserRole }) => {
                 <h4 className="text-sm font-semibold text-blue-900 mb-1">
                   {MEMBER_ROLE_LABELS[formData.memberRole]} Permissions:
                 </h4>
-                <p className="text-xs text-blue-800">
+                <p className="text-xs text-blue-800 mb-2">
                   {MEMBER_ROLE_DESCRIPTIONS[formData.memberRole]}
                 </p>
                 
                 {/* Detailed permissions */}
-                <div className="mt-2 text-xs text-blue-700 space-y-1">
+                <div className="text-xs text-blue-700 space-y-1">
                   {formData.memberRole === MEMBER_ROLES.OWNER && (
                     <>
                       <div>✓ Full control of contract</div>
@@ -180,7 +216,7 @@ const AddMemberModal = ({ isOpen, onClose, onAdd, currentUserRole }) => {
                       <div>✓ Create diaries and claims</div>
                       <div>✓ Edit draft records</div>
                       <div>✓ Upload photos</div>
-                      <div>✓ Cannot approve</div>
+                      <div>✗ Cannot approve</div>
                     </>
                   )}
                   {formData.memberRole === MEMBER_ROLES.VIEWER && (
@@ -235,7 +271,7 @@ const AddMemberModal = ({ isOpen, onClose, onAdd, currentUserRole }) => {
               </div>
             )}
 
-            {/* Trade Scope (Optional) */}
+            {/* Trade Scope */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Trade Scope (Optional)
@@ -249,7 +285,7 @@ const AddMemberModal = ({ isOpen, onClose, onAdd, currentUserRole }) => {
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
               <p className="mt-1 text-xs text-gray-500">
-                Describe what this member will be responsible for (optional)
+                Describe what this member is responsible for (optional)
               </p>
             </div>
 
@@ -281,7 +317,7 @@ const AddMemberModal = ({ isOpen, onClose, onAdd, currentUserRole }) => {
               <button
                 type="submit"
                 className="flex-1 px-4 py-2 border border-transparent rounded-lg text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled={loading}
+                disabled={loading || member.member_role === MEMBER_ROLES.OWNER}
               >
                 {loading ? (
                   <span className="flex items-center justify-center">
@@ -289,26 +325,36 @@ const AddMemberModal = ({ isOpen, onClose, onAdd, currentUserRole }) => {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    Adding...
+                    Updating...
                   </span>
                 ) : (
-                  'Add Member'
+                  'Update Role'
                 )}
               </button>
             </div>
           </form>
 
-          {/* Info Note */}
-          <div className="mt-4 bg-gray-50 border border-gray-200 rounded-lg p-3">
-            <p className="text-xs text-gray-600">
-              <strong>Note:</strong> The user must already have an account on the platform. 
-              To invite new users, use the "Invite Member" button instead.
-            </p>
-          </div>
+          {/* Warning for role changes */}
+          {formData.memberRole && formData.memberRole !== member.member_role && (
+            <div className="mt-4 bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <p className="text-xs text-yellow-800">
+                    <strong>Warning:</strong> Changing this member's role from <strong>{MEMBER_ROLE_LABELS[member.member_role]}</strong> to <strong>{MEMBER_ROLE_LABELS[formData.memberRole]}</strong> will immediately affect their permissions on this contract.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
 };
 
-export default AddMemberModal;
+export default EditMemberModal;

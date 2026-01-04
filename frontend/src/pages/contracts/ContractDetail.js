@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import ContractForm from './ContractForm';
+import Breadcrumb from '../../components/common/Breadcrumb'; 
 
 function ContractDetail() {
   const { id } = useParams();
@@ -67,6 +68,12 @@ function ContractDetail() {
     }).format(value);
   };
 
+  // Build breadcrumb navigation (2 levels only - this IS the contract page)
+  const breadcrumbItems = [
+    { label: 'Contracts', href: '/contracts', icon: '📄' },
+    { label: contract?.contract_number  || 'Loading...', href: null }  // Current page - not clickable
+  ];  
+
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-MY', {
       year: 'numeric',
@@ -110,12 +117,7 @@ function ContractDetail() {
           </svg>
           <h3 className="mt-2 text-sm font-medium text-gray-900">Contract not found</h3>
           <p className="mt-1 text-sm text-gray-500">The contract you're looking for doesn't exist.</p>
-          <button
-            onClick={() => navigate('/contracts')}
-            className="mt-4 inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
-          >
-            Back to Contracts
-          </button>
+          <Breadcrumb items={breadcrumbItems} />
         </div>
       </div>
     );
@@ -126,20 +128,11 @@ function ContractDetail() {
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-6">
-          <button
-            onClick={() => navigate('/contracts')}
-            className="flex items-center text-gray-600 hover:text-gray-900 mb-4"
-          >
-            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            Back to Contracts
-          </button>
-
+          <Breadcrumb items={breadcrumbItems} />  
           <div className="flex justify-between items-start">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">{contract.project_name}</h1>
-              <p className="mt-1 text-sm text-gray-500">{contract.contract_number}</p>
+              <h1 className="text-1xl font-bold text-gray-900">{contract.contract_number}</h1>
+              <p className="mt-1 text-sm text-gray-500">{contract.project_name}</p>
             </div>
             <span className={`px-4 py-2 rounded-full text-sm font-medium ${statusColors[contract.status]}`}>
               {contract.status.charAt(0).toUpperCase() + contract.status.slice(1)}

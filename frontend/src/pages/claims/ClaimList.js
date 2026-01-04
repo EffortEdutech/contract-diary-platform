@@ -1,10 +1,6 @@
 // ============================================
-// CLAIM LIST - View All Progress Claims
-// ============================================
-// Purpose: List all claims for a contract with filters and statistics
-// Features: Status filtering, claim cards, statistics, create new claim
-// Created: 2025-12-31
-// Session: 9 - Progress Claims Module (Phase 4A)
+// UPDATED: ClaimList.js
+// Added consistent "Back to Contract" navigation
 // ============================================
 
 import React, { useState, useEffect } from 'react';
@@ -19,6 +15,9 @@ import {
   getDaysUntilPaymentDue
 } from '../../services/claimService';
 
+import Breadcrumb from '../../components/common/Breadcrumb';
+import { supabase } from '../../lib/supabase';
+
 const ClaimList = () => {
   const { contractId } = useParams();
   const navigate = useNavigate();
@@ -29,10 +28,18 @@ const ClaimList = () => {
   const [statistics, setStatistics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [contract, setContract] = useState(null);
 
   // Filters
   const [statusFilter, setStatusFilter] = useState('all');
-  const [sortOrder, setSortOrder] = useState('desc'); // desc = newest first
+  const [sortOrder, setSortOrder] = useState('desc');
+
+  // Build breadcrumb navigation
+  const breadcrumbItems = [
+    { label: 'Contracts', href: '/contracts', icon: '📄' },
+    { label: contract?.contract_number || 'Loading...', href: `/contracts/${contractId}` },
+    { label: 'Claims', href: null }
+  ];  
 
   // Load data on mount
   useEffect(() => {
@@ -46,14 +53,20 @@ const ClaimList = () => {
     applyFilters();
   }, [claims, statusFilter, sortOrder]);
 
-  // ============================================
-  // DATA LOADING
-  // ============================================
-
   const loadClaims = async () => {
     try {
       setLoading(true);
       setError(null);
+
+      // Load contract details
+      const { data: contractData, error: contractError } = await supabase
+        .from('contracts')
+        .select('*')
+        .eq('id', contractId)
+        .single();
+
+      if (contractError) throw contractError;
+      setContract(contractData);
 
       // Load claims
       const claimsData = await getClaimsByContract(contractId);
@@ -71,36 +84,21 @@ const ClaimList = () => {
     }
   };
 
-  // ============================================
-  // FILTERS
-  // ============================================
-
   const applyFilters = () => {
     let filtered = [...claims];
 
-    // Status filter
     if (statusFilter !== 'all') {
       filtered = filtered.filter(c => c.status === statusFilter);
     }
 
-    // Sort by claim number
     filtered.sort((a, b) => {
       return sortOrder === 'desc' 
-        ? b.claim_number - a.claim_number 
-        : a.claim_number - b.claim_number;
+        ? b.claim_number.localeCompare(a.claim_number)
+        : a.claim_number.localeCompare(b.claim_number);
     });
 
     setFilteredClaims(filtered);
   };
-
-  const clearFilters = () => {
-    setStatusFilter('all');
-    setSortOrder('desc');
-  };
-
-  // ============================================
-  // HANDLERS
-  // ============================================
 
   const handleCreateClaim = () => {
     navigate(`/contracts/${contractId}/claims/create`);
@@ -110,35 +108,20 @@ const ClaimList = () => {
     navigate(`/contracts/${contractId}/claims/${claimId}`);
   };
 
-  // ============================================
-  // RENDER HELPERS
-  // ============================================
-
-  const getStatusBadge = (status) => {
-    const colorClass = getStatusColor(status);
-    const labels = {
-      draft: 'Draft',
-      submitted: 'Submitted',
-      approved: 'Approved',
-      rejected: 'Rejected',
-      paid: 'Paid'
-    };
-
-    return (
-      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colorClass}`}>
-        {labels[status] || status}
-      </span>
-    );
+  // ✅ NEW: Back to Contract handler
+  const handleBackToContract = () => {
+    navigate(`/contracts/${contractId}`);
   };
-
-  // ============================================
-  // RENDER
-  // ============================================
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+            <p className="text-gray-600">Loading claims...</p>
+          </div>
+        </div>
       </div>
     );
   }
@@ -147,10 +130,10 @@ const ClaimList = () => {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <div className="flex">
+          <div className="flex items-start">
             <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              <svg className="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 001.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
               </svg>
             </div>
             <div className="ml-3">
@@ -165,6 +148,9 @@ const ClaimList = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* ✅ NEW: Back Navigation */}
+        <Breadcrumb items={breadcrumbItems} />
+
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <div>
@@ -196,7 +182,7 @@ const ClaimList = () => {
               </div>
               <div className="bg-blue-100 rounded-full p-3">
                 <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                 </svg>
               </div>
             </div>
@@ -207,64 +193,64 @@ const ClaimList = () => {
             <div className="flex justify-between items-start">
               <div>
                 <p className="text-sm text-gray-600">Total Claimed</p>
-                <p className="text-2xl font-bold text-blue-600 mt-1">
+                <p className="text-2xl font-bold text-gray-900 mt-1">
                   {formatCurrency(statistics.total_claimed)}
                 </p>
               </div>
-              <div className="bg-blue-100 rounded-full p-3">
-                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="bg-green-100 rounded-full p-3">
+                <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
             </div>
           </div>
 
-          {/* Approved */}
+          {/* Total Certified */}
           <div className="bg-white rounded-lg shadow p-4">
             <div className="flex justify-between items-start">
               <div>
-                <p className="text-sm text-gray-600">Approved</p>
-                <p className="text-2xl font-bold text-green-600 mt-1">
-                  {formatCurrency(statistics.total_approved)}
+                <p className="text-sm text-gray-600">Total Certified</p>
+                <p className="text-2xl font-bold text-gray-900 mt-1">
+                  {formatCurrency(statistics.total_certified)}
                 </p>
               </div>
-              <div className="bg-green-100 rounded-full p-3">
-                <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="bg-purple-100 rounded-full p-3">
+                <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
             </div>
           </div>
 
-          {/* Paid */}
+          {/* Total Paid */}
           <div className="bg-white rounded-lg shadow p-4">
             <div className="flex justify-between items-start">
               <div>
-                <p className="text-sm text-gray-600">Paid</p>
-                <p className="text-2xl font-bold text-purple-600 mt-1">
+                <p className="text-sm text-gray-600">Total Paid</p>
+                <p className="text-2xl font-bold text-gray-900 mt-1">
                   {formatCurrency(statistics.total_paid)}
                 </p>
               </div>
-              <div className="bg-purple-100 rounded-full p-3">
-                <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="bg-indigo-100 rounded-full p-3">
+                <svg className="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
               </div>
             </div>
           </div>
 
-          {/* Retention */}
+          {/* Outstanding */}
           <div className="bg-white rounded-lg shadow p-4">
             <div className="flex justify-between items-start">
               <div>
-                <p className="text-sm text-gray-600">Retention Held</p>
-                <p className="text-2xl font-bold text-orange-600 mt-1">
-                  {formatCurrency(statistics.total_retention)}
+                <p className="text-sm text-gray-600">Outstanding</p>
+                <p className="text-2xl font-bold text-gray-900 mt-1">
+                  {formatCurrency(statistics.outstanding)}
                 </p>
               </div>
               <div className="bg-orange-100 rounded-full p-3">
                 <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
             </div>
@@ -273,19 +259,17 @@ const ClaimList = () => {
       )}
 
       {/* Filters */}
-      <div className="bg-white rounded-lg shadow p-4 mb-6">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="bg-white rounded-lg shadow mb-6 p-4">
+        <div className="flex flex-wrap gap-4 items-center justify-between">
           {/* Status Filter */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Status
-            </label>
+          <div className="flex items-center space-x-4">
+            <label className="text-sm font-medium text-gray-700">Filter by Status:</label>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
-              <option value="all">All Status</option>
+              <option value="all">All Claims</option>
               <option value="draft">Draft</option>
               <option value="submitted">Submitted</option>
               <option value="approved">Approved</option>
@@ -295,56 +279,50 @@ const ClaimList = () => {
           </div>
 
           {/* Sort Order */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Sort Order
-            </label>
+          <div className="flex items-center space-x-4">
+            <label className="text-sm font-medium text-gray-700">Sort Order:</label>
             <select
               value={sortOrder}
               onChange={(e) => setSortOrder(e.target.value)}
-              className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
               <option value="desc">Newest First</option>
               <option value="asc">Oldest First</option>
             </select>
           </div>
 
-          {/* Actions */}
-          <div className="flex items-end">
-            <button
-              onClick={clearFilters}
-              className="w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-            >
-              Clear Filters
-            </button>
+          {/* Results Count */}
+          <div className="text-sm text-gray-600">
+            Showing {filteredClaims.length} of {claims.length} claims
           </div>
         </div>
       </div>
 
       {/* Claims List */}
       {filteredClaims.length === 0 ? (
-        <div className="bg-white rounded-lg shadow p-8 text-center">
-          <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        <div className="bg-white rounded-lg shadow p-12 text-center">
+          <svg className="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
           </svg>
-          <h3 className="mt-2 text-sm font-medium text-gray-900">No claims found</h3>
-          <p className="mt-1 text-sm text-gray-500">
-            {statusFilter !== 'all' 
-              ? 'No claims match the current filter. Try changing the filter or create a new claim.'
-              : 'Get started by creating your first progress claim.'
-            }
+          <h3 className="text-lg font-medium text-gray-900 mb-2">
+            {statusFilter === 'all' ? 'No Claims Yet' : `No ${statusFilter} Claims`}
+          </h3>
+          <p className="text-gray-600 mb-6">
+            {statusFilter === 'all' 
+              ? 'Create your first progress claim to start tracking payments.'
+              : `There are no ${statusFilter} claims at the moment.`}
           </p>
-          <div className="mt-6">
+          {statusFilter === 'all' && (
             <button
               onClick={handleCreateClaim}
-              className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+              className="inline-flex items-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
             >
               <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
               Create First Claim
             </button>
-          </div>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4">
@@ -352,88 +330,98 @@ const ClaimList = () => {
             <div
               key={claim.id}
               onClick={() => handleViewClaim(claim.id)}
-              className="bg-white rounded-lg shadow hover:shadow-md transition-shadow cursor-pointer"
+              className="bg-white rounded-lg shadow hover:shadow-lg transition-shadow cursor-pointer p-6"
             >
-              <div className="p-6">
-                <div className="flex justify-between items-start">
-                  {/* Left: Claim Info */}
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-3 mb-2">
-                      <h3 className="text-lg font-semibold text-gray-900">
-                        Claim #{claim.claim_number}
-                      </h3>
-                      {getStatusBadge(claim.status)}
-                      {isClaimOverdue(claim) && (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                          Overdue
-                        </span>
-                      )}
-                    </div>
-                    
-                    <p className="text-gray-600 mb-3">{claim.claim_title || 'No title'}</p>
-                    
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
-                      <div>
-                        <p className="text-gray-500">Period</p>
-                        <p className="font-medium text-gray-900">
-                          {formatDate(claim.claim_period_from)} - {formatDate(claim.claim_period_to)}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-gray-500">Claim Amount</p>
-                        <p className="font-medium text-gray-900">
-                          {formatCurrency(claim.claim_amount)}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-gray-500">Retention ({claim.retention_percentage}%)</p>
-                        <p className="font-medium text-gray-900">
-                          {formatCurrency(claim.retention_amount)}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-gray-500">Net Amount</p>
-                        <p className="font-medium text-blue-600">
-                          {formatCurrency(claim.net_claim_amount)}
-                        </p>
-                      </div>
-                    </div>
+              <div className="flex justify-between items-start mb-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    {claim.claim_number}
+                  </h3>
+                  <p className="text-sm text-gray-600 mt-1">
+                    {claim.claim_title || 'Progress Claim'}
+                  </p>
+                </div>
+                <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(claim.status)}`}>
+                  {claim.status.charAt(0).toUpperCase() + claim.status.slice(1)}
+                </span>
+              </div>
 
-                    {/* Payment Info */}
-                    {claim.status === 'approved' && claim.payment_due_date && (
-                      <div className="mt-3 flex items-center text-sm">
-                        <svg className="w-4 h-4 text-orange-500 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <span className="text-gray-600">
-                          Payment due: {formatDate(claim.payment_due_date)}
-                          {getDaysUntilPaymentDue(claim.payment_due_date) !== null && (
-                            <span className={getDaysUntilPaymentDue(claim.payment_due_date) < 0 ? 'text-red-600 font-medium' : 'text-gray-500'}>
-                              {' '}({Math.abs(getDaysUntilPaymentDue(claim.payment_due_date))} days {getDaysUntilPaymentDue(claim.payment_due_date) < 0 ? 'overdue' : 'remaining'})
-                            </span>
-                          )}
-                        </span>
-                      </div>
-                    )}
-
-                    {claim.status === 'paid' && claim.payment_date && (
-                      <div className="mt-3 flex items-center text-sm text-green-600">
-                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        Paid on {formatDate(claim.payment_date)}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Right: Arrow */}
-                  <div className="ml-4">
-                    <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                <div>
+                  <p className="text-xs text-gray-500">Submission Date</p>
+                  <p className="text-sm font-medium text-gray-900">
+                    {claim.submission_date ? formatDate(claim.submission_date) : '-'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Claim Amount</p>
+                  <p className="text-sm font-medium text-gray-900">
+                    {formatCurrency(claim.claim_amount)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Certified Amount</p>
+                  <p className="text-sm font-medium text-gray-900">
+                    {formatCurrency(claim.cumulative_certified_amount || 0)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">Retention</p>
+                  <p className="text-sm font-medium text-gray-900">
+                    {formatCurrency(claim.retention_amount || 0)}
+                  </p>
                 </div>
               </div>
+
+              {/* Progress Bar */}
+              <div className="mt-4">
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-xs text-gray-600">Payment Progress</span>
+                  <span className="text-xs font-medium text-gray-900">
+                    {claim.claim_amount > 0 
+                      ? ((claim.cumulative_certified_amount / claim.claim_amount) * 100).toFixed(1)
+                      : 0}%
+                  </span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div
+                    className="bg-blue-600 h-2 rounded-full transition-all"
+                    style={{
+                      width: `${claim.claim_amount > 0 
+                        ? Math.min(((claim.cumulative_certified_amount / claim.claim_amount) * 100), 100)
+                        : 0}%`
+                    }}
+                  ></div>
+                </div>
+              </div>
+
+              {/* Overdue Warning */}
+              {isClaimOverdue(claim) && (
+                <div className="mt-4 bg-red-50 border border-red-200 rounded-lg p-3">
+                  <div className="flex items-center text-red-800">
+                    <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    <span className="text-sm font-medium">
+                      Payment Overdue - CIPAA Action Available
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Days Until Payment Due */}
+              {claim.status === 'submitted' && getDaysUntilPaymentDue(claim) !== null && (
+                <div className="mt-4 bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                  <div className="flex items-center text-yellow-800">
+                    <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                    </svg>
+                    <span className="text-sm font-medium">
+                      Payment due in {getDaysUntilPaymentDue(claim)} days
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>

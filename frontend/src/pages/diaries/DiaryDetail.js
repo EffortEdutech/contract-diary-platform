@@ -8,6 +8,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import Breadcrumb from '../../components/common/Breadcrumb';
+import { supabase } from '../../lib/supabase';
+
 import {
   getDiaryById,
   acknowledgeDiary,
@@ -29,18 +32,33 @@ const DiaryDetail = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [acknowledging, setAcknowledging] = useState(false);
-  
+  const [contract, setContract] = useState(null); 
+
   // Tab management
   const [activeTab, setActiveTab] = useState('details'); // 'details' or 'photos'
 
-  useEffect(() => {
-    loadDiary();
-  }, [diaryId]);
+// Updated useEffect with contractId dependency
+useEffect(() => {
+  loadDiary();
+}, [diaryId, contractId]);  // ✅ Added contractId
 
+  // Updated loadDiary function
   const loadDiary = async () => {
     try {
       setLoading(true);
       setError(null);
+      
+      // ✅ ADDED: Fetch contract details
+      const { data: contractData, error: contractError } = await supabase
+        .from('contracts')
+        .select('*')
+        .eq('id', contractId)
+        .single();
+
+      if (contractError) throw contractError;
+      setContract(contractData);
+      
+      // Fetch diary data
       const data = await getDiaryById(diaryId);
       setDiary(data);
     } catch (err) {
@@ -137,6 +155,14 @@ const DiaryDetail = () => {
     return icons[weather] || '🌤️';
   };
 
+  // ✅ FIXED: 4 levels with contract name
+  const breadcrumbItems = [
+    { label: 'Contracts', href: '/contracts', icon: '📄' },
+    { label: contract?.contract_number || 'Loading...', href: `/contracts/${contractId}` },  // ✅ NEW
+    { label: 'Daily Diaries', href: `/contracts/${contractId}/diaries` },
+    { label: 'Diary Details', href: null }
+  ];
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -151,12 +177,7 @@ const DiaryDetail = () => {
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
           {error || 'Diary not found'}
         </div>
-        <button
-          onClick={() => navigate(`/contracts/${contractId}/diaries`)}
-          className="mt-4 text-blue-600 hover:text-blue-800"
-        >
-          ← Back to Diaries
-        </button>
+          <Breadcrumb items={breadcrumbItems} />
       </div>
     );
   }
@@ -165,15 +186,7 @@ const DiaryDetail = () => {
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
       <div className="mb-6">
-        <button
-          onClick={() => navigate(`/contracts/${contractId}/diaries`)}
-          className="text-blue-600 hover:text-blue-800 mb-2 flex items-center text-sm"
-        >
-          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-          </svg>
-          Back to Diaries
-        </button>
+        <Breadcrumb items={breadcrumbItems} />
 
         <div className="flex items-start justify-between">
           <div className="flex-1">

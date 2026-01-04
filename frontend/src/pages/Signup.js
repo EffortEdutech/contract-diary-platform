@@ -1,163 +1,134 @@
-import { useState, useEffect } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
+// ============================================
+// UPDATED: Signup.js  
+// Session 13 - RBAC Migration
+// ============================================
+// CHANGES:
+// - Removed user_role from user_profiles INSERT
+// - Only uses 'role' (company type)
+// - Member role will be assigned when joining contracts
+// ============================================
 
-export default function Signup() {
-  const [step, setStep] = useState(1) // Multi-step form
-  const [organizations, setOrganizations] = useState([])
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
+
+const Signup = () => {
+  const navigate = useNavigate();
+  const [step, setStep] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [organizations, setOrganizations] = useState([]);
   const [formData, setFormData] = useState({
-    // Step 1: Account
     email: '',
     password: '',
     confirmPassword: '',
-    
-    // Step 2: Personal Info
     fullName: '',
     position: '',
     phone: '',
-    cidbRegistration: '',
-    ssmRegistration: '',
-    
-    // Step 3: Organization & Role
+    companyType: 'main_contractor', // This goes to user_profiles.role
     organizationId: '',
-    role: 'editor', // Default role
-    companyType: 'main_contractor' // For filtering contracts
-  })
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(null)
-  const navigate = useNavigate()
+    cidbRegistration: '',
+    ssmRegistration: ''
+  });
 
-  // Role definitions with permissions
-  const roles = [
+  // Company types for selection
+  const companyTypes = [
     {
-      value: 'owner',
-      label: 'Owner',
-      description: 'Super admin (contract owner)',
-      color: 'blue',
-      icon: '👑'
+      value: 'main_contractor',
+      label: 'Main Contractor',
+      icon: '🏗️',
+      description: 'Manage projects and subcontractors'
     },
     {
-      value: 'admin',
-      label: 'Admin',
-      description: 'Full control within organization',
-      color: 'purple',
-      icon: '⚡'
+      value: 'subcontractor',
+      label: 'Subcontractor',
+      icon: '👷',
+      description: 'Submit work progress and claims'
     },
     {
-      value: 'editor',
-      label: 'Editor',
-      description: 'Can create and update records',
-      color: 'green',
-      icon: '✏️'
+      value: 'consultant',
+      label: 'Consultant',
+      icon: '📋',
+      description: 'Review and certify work'
     },
     {
-      value: 'submitter',
-      label: 'Submitter',
-      description: 'Can submit but not approve',
-      color: 'yellow',
-      icon: '📝'
-    },
-    {
-      value: 'reviewer',
-      label: 'Reviewer',
-      description: 'Can review and comment',
-      color: 'orange',
-      icon: '👁️'
-    },
-    {
-      value: 'approver',
-      label: 'Approver',
-      description: 'Can approve submissions',
-      color: 'indigo',
-      icon: '✓'
-    },
-    {
-      value: 'auditor',
-      label: 'Auditor',
-      description: 'Read + export only',
-      color: 'gray',
-      icon: '📊'
-    },
-    {
-      value: 'readonly',
-      label: 'Read-Only',
-      description: 'View only',
-      color: 'gray',
-      icon: '👀'
+      value: 'supplier',
+      label: 'Supplier',
+      icon: '🚚',
+      description: 'Supply materials and equipment'
     }
-  ]
+  ];
 
-  // Load organizations on mount
   useEffect(() => {
-    loadOrganizations()
-  }, [])
+    loadOrganizations();
+  }, []);
 
   const loadOrganizations = async () => {
     try {
       const { data, error } = await supabase
         .from('organizations')
-        .select('id, name, organization_type, cidb_grade, registration_number')
-        .order('name')
+        .select('*')
+        .order('name');
 
-      if (error) throw error
-      setOrganizations(data || [])
-    } catch (err) {
-      console.error('Error loading organizations:', err)
-      setError('Failed to load organizations. Please refresh the page.')
+      if (error) throw error;
+      setOrganizations(data || []);
+    } catch (error) {
+      console.error('Error loading organizations:', error);
+      setError('Failed to load organizations. Please refresh the page.');
     }
-  }
+  };
 
   const handleChange = (e) => {
     setFormData({
       ...formData,
       [e.target.name]: e.target.value
-    })
-  }
+    });
+  };
 
   const handleNext = () => {
     // Validation before moving to next step
     if (step === 1) {
       if (!formData.email || !formData.password || !formData.confirmPassword) {
-        setError('Please fill in all fields')
-        return
+        setError('Please fill in all fields');
+        return;
       }
       if (formData.password !== formData.confirmPassword) {
-        setError('Passwords do not match')
-        return
+        setError('Passwords do not match');
+        return;
       }
       if (formData.password.length < 6) {
-        setError('Password must be at least 6 characters')
-        return
+        setError('Password must be at least 6 characters');
+        return;
       }
     }
 
     if (step === 2) {
       if (!formData.fullName || !formData.position || !formData.phone) {
-        setError('Please fill in all required fields')
-        return
+        setError('Please fill in all required fields');
+        return;
       }
     }
 
-    setError(null)
-    setStep(step + 1)
-  }
+    setError(null);
+    setStep(step + 1);
+  };
 
   const handleBack = () => {
-    setError(null)
-    setStep(step - 1)
-  }
+    setError(null);
+    setStep(step - 1);
+  };
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
-    setError(null)
+    e.preventDefault();
+    setError(null);
 
     // Final validation
     if (!formData.organizationId) {
-      setError('Please select your organization')
-      return
+      setError('Please select your organization');
+      return;
     }
 
-    setLoading(true)
+    setLoading(true);
 
     try {
       // Step 1: Create auth user
@@ -169,51 +140,53 @@ export default function Signup() {
             full_name: formData.fullName
           }
         }
-      })
+      });
 
-      if (authError) throw authError
+      if (authError) throw authError;
 
       // Step 2: Get organization details
-      const selectedOrg = organizations.find(org => org.id === formData.organizationId)
+      const selectedOrg = organizations.find(org => org.id === formData.organizationId);
 
-      // Step 3: Create user profile with ALL information
+      // Step 3: Create user profile
+      // ✅ FIXED: Only insert 'role' (company type), NOT 'user_role'
+      // Member role will be assigned when user joins specific contracts
       if (authData.user) {
         const { error: profileError } = await supabase
           .from('user_profiles')
           .insert({
             id: authData.user.id,
-            role: formData.companyType, // Company type (for filtering)
-            user_role: formData.role, // Permission role (for access control)
+            role: formData.companyType, // ✅ Company type only (MC/SC/Consultant/Supplier)
+            // ❌ REMOVED: user_role field (no longer exists in database)
             position: formData.position,
             phone: formData.phone,
             organization_id: formData.organizationId,
             organization_name: selectedOrg?.name,
             cidb_registration: formData.cidbRegistration || null,
             ssm_registration: formData.ssmRegistration || null
-          })
+          });
 
         if (profileError) {
-          console.error('Error creating profile:', profileError)
-          throw new Error('Failed to create user profile. Please contact support.')
+          console.error('Error creating profile:', profileError);
+          throw new Error('Failed to create user profile. Please contact support.');
         }
 
-        console.log('✅ User profile created successfully!')
+        console.log('✅ User profile created successfully!');
       }
 
-      alert('Account created successfully! You can now sign in.')
-      navigate('/login')
+      alert('Account created successfully! You can now sign in.');
+      navigate('/login');
 
     } catch (error) {
-      console.error('Signup error:', error)
-      setError(error.message || 'Failed to create account. Please try again.')
+      console.error('Signup error:', error);
+      setError(error.message || 'Failed to create account. Please try again.');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
-  const getSelectedRole = () => {
-    return roles.find(r => r.value === formData.role)
-  }
+  const getSelectedCompanyType = () => {
+    return companyTypes.find(ct => ct.value === formData.companyType);
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
@@ -253,63 +226,58 @@ export default function Signup() {
         </div>
 
         {/* Form */}
-        <form className="mt-8 space-y-6 bg-white p-8 rounded-lg shadow" onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} className="mt-8 space-y-6 bg-white p-8 rounded-lg shadow">
           {error && (
             <div className="rounded-md bg-red-50 p-4">
               <p className="text-sm text-red-800">{error}</p>
             </div>
           )}
 
-          {/* STEP 1: Account */}
+          {/* STEP 1: Account Credentials */}
           {step === 1 && (
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-gray-900">Account Credentials</h3>
-              
               <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                  Email address <span className="text-red-500">*</span>
+                <label className="block text-sm font-medium text-gray-700">
+                  Email Address *
                 </label>
                 <input
-                  id="email"
-                  name="email"
                   type="email"
-                  required
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="you@company.com"
+                  name="email"
                   value={formData.email}
                   onChange={handleChange}
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  required
                 />
               </div>
 
               <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                  Password <span className="text-red-500">*</span>
+                <label className="block text-sm font-medium text-gray-700">
+                  Password *
                 </label>
                 <input
-                  id="password"
-                  name="password"
                   type="password"
-                  required
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="At least 6 characters"
+                  name="password"
                   value={formData.password}
                   onChange={handleChange}
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  required
                 />
+                <p className="mt-1 text-xs text-gray-500">
+                  Must be at least 6 characters
+                </p>
               </div>
 
               <div>
-                <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
-                  Confirm Password <span className="text-red-500">*</span>
+                <label className="block text-sm font-medium text-gray-700">
+                  Confirm Password *
                 </label>
                 <input
-                  id="confirmPassword"
-                  name="confirmPassword"
                   type="password"
-                  required
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Re-enter password"
+                  name="confirmPassword"
                   value={formData.confirmPassword}
                   onChange={handleChange}
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  required
                 />
               </div>
 
@@ -318,94 +286,56 @@ export default function Signup() {
                 onClick={handleNext}
                 className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
               >
-                Next: Personal Information →
+                Next
               </button>
             </div>
           )}
 
-          {/* STEP 2: Personal Info */}
+          {/* STEP 2: Personal Information */}
           {step === 2 && (
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-gray-900">Personal Information</h3>
-              
               <div>
-                <label htmlFor="fullName" className="block text-sm font-medium text-gray-700">
-                  Full Name <span className="text-red-500">*</span>
+                <label className="block text-sm font-medium text-gray-700">
+                  Full Name *
                 </label>
                 <input
-                  id="fullName"
-                  name="fullName"
                   type="text"
-                  required
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Ahmad bin Ali"
+                  name="fullName"
                   value={formData.fullName}
                   onChange={handleChange}
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  required
                 />
               </div>
 
               <div>
-                <label htmlFor="position" className="block text-sm font-medium text-gray-700">
-                  Position / Job Title <span className="text-red-500">*</span>
+                <label className="block text-sm font-medium text-gray-700">
+                  Position/Title *
                 </label>
                 <input
-                  id="position"
-                  name="position"
                   type="text"
-                  required
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="e.g., Project Manager, Site Engineer"
+                  name="position"
                   value={formData.position}
                   onChange={handleChange}
+                  placeholder="e.g., Project Manager, Site Engineer"
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  required
                 />
               </div>
 
               <div>
-                <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
-                  Phone Number <span className="text-red-500">*</span>
+                <label className="block text-sm font-medium text-gray-700">
+                  Phone Number *
                 </label>
                 <input
-                  id="phone"
-                  name="phone"
                   type="tel"
-                  required
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="+60123456789"
+                  name="phone"
                   value={formData.phone}
                   onChange={handleChange}
+                  placeholder="e.g., +60123456789"
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  required
                 />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="cidbRegistration" className="block text-sm font-medium text-gray-700">
-                    CIDB Registration (Optional)
-                  </label>
-                  <input
-                    id="cidbRegistration"
-                    name="cidbRegistration"
-                    type="text"
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="CIDB Number"
-                    value={formData.cidbRegistration}
-                    onChange={handleChange}
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="ssmRegistration" className="block text-sm font-medium text-gray-700">
-                    SSM Registration (Optional)
-                  </label>
-                  <input
-                    id="ssmRegistration"
-                    name="ssmRegistration"
-                    type="text"
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="SSM Number"
-                    value={formData.ssmRegistration}
-                    onChange={handleChange}
-                  />
-                </div>
               </div>
 
               <div className="flex space-x-4">
@@ -414,102 +344,53 @@ export default function Signup() {
                   onClick={handleBack}
                   className="flex-1 py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                 >
-                  ← Back
+                  Back
                 </button>
                 <button
                   type="button"
                   onClick={handleNext}
                   className="flex-1 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                 >
-                  Next: Organization →
+                  Next
                 </button>
               </div>
             </div>
           )}
 
-          {/* STEP 3: Organization & Role */}
+          {/* STEP 3: Organization & Company Type */}
           {step === 3 && (
             <div className="space-y-6">
-              <h3 className="text-lg font-semibold text-gray-900">Organization & Role</h3>
-              
-              <div>
-                <label htmlFor="organizationId" className="block text-sm font-medium text-gray-700 mb-2">
-                  Select Your Organization <span className="text-red-500">*</span>
-                </label>
-                {organizations.length === 0 ? (
-                  <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
-                    <p className="text-sm text-yellow-800">
-                      No organizations available. Please contact your administrator to register your company first.
-                    </p>
-                  </div>
-                ) : (
-                  <select
-                    id="organizationId"
-                    name="organizationId"
-                    required
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    value={formData.organizationId}
-                    onChange={handleChange}
-                  >
-                    <option value="">-- Select Organization --</option>
-                    {organizations.map(org => (
-                      <option key={org.id} value={org.id}>
-                        {org.name} {org.cidb_grade && `(${org.cidb_grade})`} - {org.organization_type.replace('_', ' ').toUpperCase()}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </div>
-
-              <div>
-                <label htmlFor="companyType" className="block text-sm font-medium text-gray-700 mb-2">
-                  Company Type <span className="text-red-500">*</span>
-                </label>
-                <select
-                  id="companyType"
-                  name="companyType"
-                  required
-                  className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  value={formData.companyType}
-                  onChange={handleChange}
-                >
-                  <option value="main_contractor">Main Contractor</option>
-                  <option value="subcontractor">Subcontractor</option>
-                  <option value="consultant">Consultant</option>
-                  <option value="supplier">Supplier</option>
-                </select>
-              </div>
-
+              {/* Company Type Selection */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-3">
-                  Your Role <span className="text-red-500">*</span>
+                  Company Type *
                 </label>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {roles.map(role => (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {companyTypes.map((type) => (
                     <label
-                      key={role.value}
+                      key={type.value}
                       className={`relative flex cursor-pointer rounded-lg border p-4 focus:outline-none ${
-                        formData.role === role.value
+                        formData.companyType === type.value
                           ? 'border-blue-600 ring-2 ring-blue-600 bg-blue-50'
                           : 'border-gray-300 bg-white hover:border-blue-300'
                       }`}
                     >
                       <input
                         type="radio"
-                        name="role"
-                        value={role.value}
+                        name="companyType"
+                        value={type.value}
                         className="sr-only"
-                        checked={formData.role === role.value}
+                        checked={formData.companyType === type.value}
                         onChange={handleChange}
                       />
                       <div className="flex flex-1">
                         <div className="flex flex-col">
                           <span className="flex items-center text-sm font-medium text-gray-900">
-                            <span className="text-xl mr-2">{role.icon}</span>
-                            {role.label}
+                            <span className="text-xl mr-2">{type.icon}</span>
+                            {type.label}
                           </span>
                           <span className="mt-1 flex items-center text-xs text-gray-500">
-                            {role.description}
+                            {type.description}
                           </span>
                         </div>
                       </div>
@@ -518,107 +399,139 @@ export default function Signup() {
                 </div>
               </div>
 
-              {/* Role Permissions Info */}
-              {formData.role && (
+              {/* Company Type Info */}
+              {formData.companyType && (
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                   <h4 className="text-sm font-semibold text-blue-900 mb-2">
-                    {getSelectedRole()?.icon} {getSelectedRole()?.label} Permissions:
+                    {getSelectedCompanyType()?.icon} {getSelectedCompanyType()?.label} Access:
                   </h4>
                   <ul className="text-xs text-blue-800 space-y-1">
-                    {formData.role === 'owner' && (
+                    {formData.companyType === 'main_contractor' && (
                       <>
-                        <li>✓ Full system access</li>
                         <li>✓ Create and manage contracts</li>
-                        <li>✓ Approve all submissions</li>
-                        <li>✓ Manage organization settings</li>
-                        <li>✓ Add/remove users</li>
+                        <li>✓ Invite subcontractors and team members</li>
+                        <li>✓ Edit BOQ and approve claims</li>
+                        <li>✓ Acknowledge work diaries (CIPAA)</li>
+                        <li>✓ Full project control</li>
                       </>
                     )}
-                    {formData.role === 'admin' && (
+                    {formData.companyType === 'subcontractor' && (
                       <>
-                        <li>✓ Full access within organization</li>
-                        <li>✓ Create and manage contracts</li>
-                        <li>✓ Approve submissions</li>
-                        <li>✓ Manage team members</li>
+                        <li>✓ Submit daily work diaries</li>
+                        <li>✓ Create progress claims</li>
+                        <li>✓ Upload photos and documents</li>
+                        <li>✓ Track payment status</li>
+                        <li>✓ View BOQ (read-only)</li>
                       </>
                     )}
-                    {formData.role === 'editor' && (
+                    {formData.companyType === 'consultant' && (
                       <>
-                        <li>✓ Create diary entries</li>
-                        <li>✓ Update BOQ items</li>
-                        <li>✓ Submit claims</li>
-                        <li>✗ Cannot approve</li>
+                        <li>✓ Review and certify work</li>
+                        <li>✓ Approve progress claims</li>
+                        <li>✓ Comment on diaries</li>
+                        <li>✓ Generate reports</li>
                       </>
                     )}
-                    {formData.role === 'submitter' && (
+                    {formData.companyType === 'supplier' && (
                       <>
-                        <li>✓ Submit diary entries</li>
-                        <li>✓ Submit claims</li>
-                        <li>✗ Cannot edit approved items</li>
-                        <li>✗ Cannot approve</li>
-                      </>
-                    )}
-                    {formData.role === 'reviewer' && (
-                      <>
-                        <li>✓ View all records</li>
-                        <li>✓ Add comments</li>
-                        <li>✓ Flag issues</li>
-                        <li>✗ Cannot edit or approve</li>
-                      </>
-                    )}
-                    {formData.role === 'approver' && (
-                      <>
-                        <li>✓ Approve diary entries</li>
-                        <li>✓ Approve claims</li>
-                        <li>✓ View all records</li>
-                        <li>✗ Cannot create new records</li>
-                      </>
-                    )}
-                    {formData.role === 'auditor' && (
-                      <>
-                        <li>✓ View all records</li>
-                        <li>✓ Export reports</li>
-                        <li>✗ Cannot edit anything</li>
-                        <li>✗ Read-only access</li>
-                      </>
-                    )}
-                    {formData.role === 'readonly' && (
-                      <>
-                        <li>✓ View assigned records only</li>
-                        <li>✗ Cannot edit anything</li>
-                        <li>✗ Cannot export</li>
+                        <li>✓ Track material deliveries</li>
+                        <li>✓ View BOQ requirements</li>
+                        <li>✓ Submit invoices</li>
+                        <li>✓ Track payments</li>
                       </>
                     )}
                   </ul>
+                  <p className="mt-3 text-xs text-blue-700 italic">
+                    💡 Your specific permissions on each contract will be assigned by the contract owner when you join.
+                  </p>
                 </div>
               )}
+
+              {/* Organization Selection */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Organization *
+                </label>
+                <select
+                  name="organizationId"
+                  value={formData.organizationId}
+                  onChange={handleChange}
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  required
+                >
+                  <option value="">Select your organization</option>
+                  {organizations.map((org) => (
+                    <option key={org.id} value={org.id}>
+                      {org.name} {org.cidb_grade && `(${org.cidb_grade})`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Optional Registration Details */}
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    CIDB Registration (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    name="cidbRegistration"
+                    value={formData.cidbRegistration}
+                    onChange={handleChange}
+                    placeholder="e.g., PKK12345678"
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    SSM Registration (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    name="ssmRegistration"
+                    value={formData.ssmRegistration}
+                    onChange={handleChange}
+                    placeholder="e.g., 123456-A"
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+              </div>
 
               <div className="flex space-x-4">
                 <button
                   type="button"
                   onClick={handleBack}
                   className="flex-1 py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  disabled={loading}
                 >
-                  ← Back
+                  Back
                 </button>
                 <button
                   type="submit"
-                  disabled={loading || !formData.organizationId}
                   className="flex-1 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={loading}
                 >
-                  {loading ? 'Creating account...' : 'Create Account'}
+                  {loading ? 'Creating Account...' : 'Create Account'}
                 </button>
               </div>
             </div>
           )}
-
-          <div className="text-sm text-center pt-4 border-t border-gray-200">
-            <Link to="/login" className="font-medium text-blue-600 hover:text-blue-500">
-              Already have an account? Sign in
-            </Link>
-          </div>
         </form>
+
+        {/* Sign In Link */}
+        <div className="text-center">
+          <p className="text-sm text-gray-600">
+            Already have an account?{' '}
+            <Link to="/login" className="font-medium text-blue-600 hover:text-blue-500">
+              Sign in
+            </Link>
+          </p>
+        </div>
       </div>
     </div>
-  )
-}
+  );
+};
+
+export default Signup;

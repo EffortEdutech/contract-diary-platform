@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { getBOQsByContract, deleteBOQ, getBOQStatistics } from '../../services/boqService';
 import { supabase } from '../../lib/supabase';
+import Breadcrumb from '../../components/common/Breadcrumb';
 
 function BOQList() {
   const { contractId } = useParams();
@@ -13,6 +14,12 @@ function BOQList() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+
+  const breadcrumbItems = [
+    { label: 'Contracts', href: '/contracts', icon: '📄' },
+    { label: contract?.contract_number || 'Loading...', href: `/contracts/${contractId}` },
+    { label: 'BOQ', href: null }
+  ];
 
   useEffect(() => {
     fetchData();
@@ -100,18 +107,9 @@ function BOQList() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <Breadcrumb items={breadcrumbItems} />
       {/* Header */}
-      <div className="mb-6">
-        <div className="flex items-center text-sm text-gray-500 mb-2">
-          <Link to="/contracts" className="hover:text-blue-600">Contracts</Link>
-          <span className="mx-2">/</span>
-          <Link to={`/contracts/${contractId}`} className="hover:text-blue-600">
-            {contract?.contract_number}
-          </Link>
-          <span className="mx-2">/</span>
-          <span className="text-gray-900">BOQ</span>
-        </div>
-        
+      <div className="mb-6">                
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Bill of Quantities</h1>

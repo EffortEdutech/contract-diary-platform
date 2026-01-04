@@ -1,4 +1,13 @@
-// ProfileSettings.js - User Profile Settings
+// ============================================
+// UPDATED: ProfileSettings.js
+// Session 13 - RBAC Migration
+// ============================================
+// CHANGES:
+// - Removed user_role field from form (doesn't exist in DB)
+// - Only displays company type (role) as read-only badge
+// - User's contract-specific roles managed via contract_members
+// ============================================
+
 import React, { useState } from 'react';
 import { copyToClipboard, updateUserProfile } from '../../services/settingsService';
 
@@ -53,28 +62,28 @@ const ProfileSettings = ({ profile, onUpdate }) => {
     setIsEditing(false);
   };
 
-  const getRoleBadge = (role) => {
+  const getCompanyTypeBadge = (role) => {
     const badges = {
-      main_contractor: { bg: 'bg-blue-100', text: 'text-blue-800', label: 'Main Contractor' },
-      subcontractor: { bg: 'bg-green-100', text: 'text-green-800', label: 'Subcontractor' },
-      consultant: { bg: 'bg-purple-100', text: 'text-purple-800', label: 'Consultant' },
-      supplier: { bg: 'bg-orange-100', text: 'text-orange-800', label: 'Supplier' }
+      main_contractor: { bg: 'bg-blue-100', text: 'text-blue-800', label: 'Main Contractor', icon: '🏗️' },
+      subcontractor: { bg: 'bg-green-100', text: 'text-green-800', label: 'Subcontractor', icon: '👷' },
+      consultant: { bg: 'bg-purple-100', text: 'text-purple-800', label: 'Consultant', icon: '📋' },
+      supplier: { bg: 'bg-orange-100', text: 'text-orange-800', label: 'Supplier', icon: '🚚' }
     };
-    const badge = badges[role] || { bg: 'bg-gray-100', text: 'text-gray-800', label: role };
+    const badge = badges[role] || { bg: 'bg-gray-100', text: 'text-gray-800', label: role, icon: '👤' };
     return (
       <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${badge.bg} ${badge.text}`}>
+        <span className="mr-1">{badge.icon}</span>
         {badge.label}
       </span>
     );
   };
 
   const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-MY', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
+    if (!dateString) return '-';
+    return new Date(dateString).toLocaleDateString('en-MY', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
     });
   };
 
@@ -83,221 +92,262 @@ const ProfileSettings = ({ profile, onUpdate }) => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">User Profile</h2>
-          <p className="mt-1 text-sm text-gray-500">Manage your personal information and account settings</p>
+          <h3 className="text-lg font-medium text-gray-900">Profile Information</h3>
+          <p className="mt-1 text-sm text-gray-500">
+            Update your personal information and contact details
+          </p>
         </div>
         {!isEditing && (
           <button
             onClick={() => setIsEditing(true)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
+            className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
           >
+            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
             Edit Profile
           </button>
         )}
       </div>
 
-      {/* User ID Section - PROMINENT */}
-      <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-xl p-6">
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <div className="flex items-center space-x-2 mb-2">
-              <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-              </svg>
-              <h3 className="text-lg font-semibold text-gray-900">Your User ID</h3>
+      {/* Profile Card */}
+      <div className="bg-white shadow rounded-lg overflow-hidden">
+        <div className="p-6 space-y-6">
+          
+          {/* Read-Only Information */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            
+            {/* Email (Read-Only) */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Email Address
+              </label>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="text"
+                  value={profile?.email || '-'}
+                  disabled
+                  className="flex-1 px-3 py-2 bg-gray-50 border border-gray-300 rounded-md text-gray-900 cursor-not-allowed"
+                />
+                <span className="inline-flex items-center px-2 py-1 rounded-md text-xs bg-gray-100 text-gray-600">
+                  🔒 Cannot change
+                </span>
+              </div>
             </div>
-            <p className="text-sm text-gray-600 mb-3">
-              Share this ID with Main Contractors to be added to their contracts
-            </p>
-            <div className="bg-white border border-blue-300 rounded-lg p-4">
-              <div className="flex items-center justify-between">
-                <code className="text-sm font-mono text-gray-800 select-all">{profile.user_id}</code>
+
+            {/* Company Type (Read-Only) */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Company Type
+              </label>
+              <div className="flex items-center space-x-2">
+                {getCompanyTypeBadge(profile?.role)}
+                <span className="text-xs text-gray-500">
+                  (Business identity)
+                </span>
+              </div>
+              <p className="mt-2 text-xs text-gray-500">
+                💡 Your permissions on each contract are set by the contract owner.
+              </p>
+            </div>
+
+            {/* User ID (Read-Only) */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                User ID
+              </label>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="text"
+                  value={profile?.user_id || '-'}
+                  disabled
+                  className="flex-1 px-3 py-2 bg-gray-50 border border-gray-300 rounded-md text-gray-900 font-mono text-xs cursor-not-allowed"
+                />
                 <button
                   onClick={handleCopyUserId}
-                  className={`ml-4 px-4 py-2 rounded-lg font-medium transition-all ${
-                    copied
-                      ? 'bg-green-100 text-green-700 border-2 border-green-300'
-                      : 'bg-blue-600 text-white hover:bg-blue-700'
-                  }`}
+                  className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  title="Copy User ID"
                 >
                   {copied ? (
-                    <span className="flex items-center">
-                      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      Copied!
-                    </span>
+                    <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
                   ) : (
-                    <span className="flex items-center">
-                      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                      </svg>
-                      Copy ID
-                    </span>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
                   )}
                 </button>
               </div>
             </div>
-          </div>
-        </div>
-      </div>
 
-      {/* Account Information */}
-      <div className="bg-white border border-gray-200 rounded-lg p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Account Information</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
-            <div className="flex items-center space-x-2">
-              <input
-                type="email"
-                value={profile.email}
-                disabled
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
-              />
-              <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <p className="mt-1 text-xs text-gray-500">Email cannot be changed</p>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Company Type</label>
-            <div className="flex items-center h-10">
-              {getRoleBadge(profile.role)}
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Account Created</label>
-            <input
-              type="text"
-              value={formatDate(profile.created_at)}
-              disabled
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
-            />
-          </div>
-
-          {profile.organization_name && (
+            {/* Organization (Read-Only) */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Organization</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Organization
+              </label>
               <input
                 type="text"
-                value={profile.organization_name}
+                value={profile?.organization_name || '-'}
                 disabled
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
+                className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-md text-gray-900 cursor-not-allowed"
               />
             </div>
+          </div>
+
+          <div className="border-t border-gray-200 pt-6"></div>
+
+          {/* Editable Information */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            
+            {/* Position */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Position / Title
+              </label>
+              <input
+                type="text"
+                name="position"
+                value={formData.position}
+                onChange={handleChange}
+                disabled={!isEditing}
+                placeholder="e.g., Project Manager, Site Engineer"
+                className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${
+                  !isEditing ? 'bg-gray-50 cursor-not-allowed' : 'bg-white'
+                }`}
+              />
+            </div>
+
+            {/* Phone */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Phone Number
+              </label>
+              <input
+                type="tel"
+                name="phone"
+                value={formData.phone}
+                onChange={handleChange}
+                disabled={!isEditing}
+                placeholder="e.g., +60123456789"
+                className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${
+                  !isEditing ? 'bg-gray-50 cursor-not-allowed' : 'bg-white'
+                }`}
+              />
+            </div>
+
+            {/* CIDB Registration */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                CIDB Registration
+              </label>
+              <input
+                type="text"
+                name="cidb_registration"
+                value={formData.cidb_registration}
+                onChange={handleChange}
+                disabled={!isEditing}
+                placeholder="e.g., PKK12345678"
+                className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${
+                  !isEditing ? 'bg-gray-50 cursor-not-allowed' : 'bg-white'
+                }`}
+              />
+            </div>
+
+            {/* SSM Registration */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                SSM Registration
+              </label>
+              <input
+                type="text"
+                name="ssm_registration"
+                value={formData.ssm_registration}
+                onChange={handleChange}
+                disabled={!isEditing}
+                placeholder="e.g., 123456-A"
+                className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${
+                  !isEditing ? 'bg-gray-50 cursor-not-allowed' : 'bg-white'
+                }`}
+              />
+            </div>
+          </div>
+
+          {/* Action Buttons (Only visible in edit mode) */}
+          {isEditing && (
+            <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200">
+              <button
+                onClick={handleCancel}
+                disabled={isSaving}
+                className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={isSaving}
+                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSaving ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    Save Changes
+                  </>
+                )}
+              </button>
+            </div>
           )}
+
+          {/* Account Metadata */}
+          <div className="pt-6 border-t border-gray-200">
+            <h4 className="text-sm font-medium text-gray-900 mb-3">Account Information</h4>
+            <dl className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div>
+                <dt className="text-gray-500">Account Created</dt>
+                <dd className="mt-1 text-gray-900">{formatDate(profile?.created_at)}</dd>
+              </div>
+              <div>
+                <dt className="text-gray-500">Last Updated</dt>
+                <dd className="mt-1 text-gray-900">{formatDate(profile?.updated_at)}</dd>
+              </div>
+            </dl>
+          </div>
         </div>
       </div>
 
-      {/* Personal Details */}
-      <div className="bg-white border border-gray-200 rounded-lg p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Personal Details</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label htmlFor="position" className="block text-sm font-medium text-gray-700 mb-2">
-              Position / Job Title
-            </label>
-            <input
-              type="text"
-              id="position"
-              name="position"
-              value={formData.position}
-              onChange={handleChange}
-              disabled={!isEditing}
-              placeholder="e.g., Project Manager, Site Engineer"
-              className={`w-full px-4 py-2 border border-gray-300 rounded-lg ${
-                isEditing ? 'bg-white' : 'bg-gray-50 cursor-not-allowed'
-              }`}
-            />
+      {/* Info Banner */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div className="flex">
+          <div className="flex-shrink-0">
+            <svg className="h-5 w-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
           </div>
-
-          <div>
-            <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
-              Phone Number
-            </label>
-            <input
-              type="tel"
-              id="phone"
-              name="phone"
-              value={formData.phone}
-              onChange={handleChange}
-              disabled={!isEditing}
-              placeholder="+60123456789"
-              className={`w-full px-4 py-2 border border-gray-300 rounded-lg ${
-                isEditing ? 'bg-white' : 'bg-gray-50 cursor-not-allowed'
-              }`}
-            />
-          </div>
-
-          <div>
-            <label htmlFor="cidb_registration" className="block text-sm font-medium text-gray-700 mb-2">
-              CIDB Registration
-            </label>
-            <input
-              type="text"
-              id="cidb_registration"
-              name="cidb_registration"
-              value={formData.cidb_registration}
-              onChange={handleChange}
-              disabled={!isEditing}
-              placeholder="CIDB Registration Number"
-              className={`w-full px-4 py-2 border border-gray-300 rounded-lg ${
-                isEditing ? 'bg-white' : 'bg-gray-50 cursor-not-allowed'
-              }`}
-            />
-          </div>
-
-          <div>
-            <label htmlFor="ssm_registration" className="block text-sm font-medium text-gray-700 mb-2">
-              SSM Registration
-            </label>
-            <input
-              type="text"
-              id="ssm_registration"
-              name="ssm_registration"
-              value={formData.ssm_registration}
-              onChange={handleChange}
-              disabled={!isEditing}
-              placeholder="SSM Registration Number"
-              className={`w-full px-4 py-2 border border-gray-300 rounded-lg ${
-                isEditing ? 'bg-white' : 'bg-gray-50 cursor-not-allowed'
-              }`}
-            />
+          <div className="ml-3">
+            <h3 className="text-sm font-medium text-blue-800">About Company Type & Permissions</h3>
+            <div className="mt-2 text-sm text-blue-700">
+              <p>
+                <strong>Company Type</strong> defines who you are (Main Contractor, Subcontractor, etc.). 
+                This cannot be changed as it's tied to your organization.
+              </p>
+              <p className="mt-2">
+                <strong>Contract Permissions</strong> are set individually for each contract you join. 
+                The contract owner assigns your role (Owner, Admin, Editor, Viewer, etc.) which determines 
+                what you can do on that specific contract.
+              </p>
+            </div>
           </div>
         </div>
-
-        {isEditing && (
-          <div className="mt-6 flex items-center justify-end space-x-4 pt-6 border-t border-gray-200">
-            <button
-              onClick={handleCancel}
-              disabled={isSaving}
-              className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors disabled:opacity-50"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={isSaving}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center"
-            >
-              {isSaving ? (
-                <>
-                  <svg className="animate-spin h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                  Saving...
-                </>
-              ) : (
-                'Save Changes'
-              )}
-            </button>
-          </div>
-        )}
       </div>
     </div>
   );
