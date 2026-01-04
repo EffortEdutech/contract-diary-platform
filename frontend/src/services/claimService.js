@@ -201,7 +201,7 @@ export const getClaimItems = async (claimId) => {
         *,
         boq_item:boq_items(
           id,
-          item_no,
+          item_number,
           description,
           unit,
           quantity,
@@ -210,7 +210,7 @@ export const getClaimItems = async (claimId) => {
           item_type,
           boq_section:boq_sections(
             id,
-            section_no,
+            section_number,
             title
           )
         )
@@ -543,12 +543,12 @@ export const getAvailableBoqItems = async (contractId) => {
         *,
         boq_section:boq_sections(
           id,
-          section_no,
+          section_number,
           title
         )
       `)
       .eq('boq_id', boq.id)
-      .order('item_no', { ascending: true });
+      .order('item_number', { ascending: true });
 
     if (itemsError) throw itemsError;
 

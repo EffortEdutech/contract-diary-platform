@@ -8,6 +8,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import Breadcrumb from '../../components/common/Breadcrumb';
 import {
   createDiary,
   updateDiary,
@@ -36,6 +37,14 @@ const DiaryForm = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
+
+  // Build breadcrumb navigation
+  const breadcrumbItems = [
+    { label: 'Contracts', href: '/contracts', icon: '📄' },
+    { label: contract?.contract_number || 'Loading...', href: `/contracts/${contractId}` },
+    { label: 'Daily Diaries', href: `/contracts/${contractId}/diaries` },
+    { label: isEditMode ? 'Edit Diary' : 'Create New Diary', href: null }
+  ];
 
   // Auto-save state
   const [autoSaveStatus, setAutoSaveStatus] = useState('idle'); // idle, saving, saved, error
@@ -500,15 +509,7 @@ const DiaryForm = () => {
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
       <div className="mb-6">
-        <button
-          onClick={() => navigate(`/contracts/${contractId}/diaries`)}
-          className="text-blue-600 hover:text-blue-800 mb-2 flex items-center text-sm"
-        >
-          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-          </svg>
-          Back to Diaries
-        </button>
+        <Breadcrumb items={breadcrumbItems} />
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">

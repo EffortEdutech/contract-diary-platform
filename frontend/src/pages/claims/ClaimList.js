@@ -93,8 +93,8 @@ const ClaimList = () => {
 
     filtered.sort((a, b) => {
       return sortOrder === 'desc' 
-        ? b.claim_number.localeCompare(a.claim_number)
-        : a.claim_number.localeCompare(b.claim_number);
+        ? b.claim_number - a.claim_number
+        : a.claim_number - b.claim_number;
     });
 
     setFilteredClaims(filtered);

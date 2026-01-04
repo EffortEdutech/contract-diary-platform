@@ -9,6 +9,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import Breadcrumb from '../../components/common/Breadcrumb';
+import { supabase } from '../../lib/supabase';
 import {
   createClaim,
   addClaimItem,
@@ -38,7 +40,16 @@ const CreateClaim = () => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [showItemPicker, setShowItemPicker] = useState(false);
+  const [contract, setContract] = useState(null);
 
+  // Build breadcrumb navigation
+  const breadcrumbItems = [
+    { label: 'Contracts', href: '/contracts', icon: '📄' },
+    { label: contract?.contract_number || 'Loading...', href: `/contracts/${contractId}` },
+    { label: 'Claims', href: `/contracts/${contractId}/claims` },
+    { label: 'Create New Claim', href: null }
+  ];
+  
   // Load available BOQ items
   useEffect(() => {
     if (contractId) {
@@ -53,6 +64,17 @@ const CreateClaim = () => {
   const loadAvailableItems = async () => {
     try {
       setLoading(true);
+      
+      // Load contract details
+      const { data: contractData, error: contractError } = await supabase
+        .from('contracts')
+        .select('*')
+        .eq('id', contractId)
+        .single();
+
+      if (contractError) throw contractError;
+      setContract(contractData);
+      
       const items = await getAvailableBoqItems(contractId);
       setAvailableItems(items);
     } catch (err) {
@@ -185,9 +207,9 @@ const CreateClaim = () => {
   const filteredAvailableItems = availableItems.filter(item => {
     const searchLower = searchTerm.toLowerCase();
     return (
-      item.item_no.toLowerCase().includes(searchLower) ||
-      item.description.toLowerCase().includes(searchLower) ||
-      item.boq_section?.title.toLowerCase().includes(searchLower)
+      (item.item_number || '').toLowerCase().includes(searchLower) ||
+      (item.description || '').toLowerCase().includes(searchLower) ||
+      (item.boq_section?.title || '').toLowerCase().includes(searchLower)
     );
   });
 
@@ -205,17 +227,10 @@ const CreateClaim = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <Breadcrumb items={breadcrumbItems} />
       {/* Header */}
       <div className="mb-6">
         <div className="flex items-center mb-2">
-          <button
-            onClick={() => navigate(`/contracts/${contractId}/claims`)}
-            className="mr-4 text-gray-600 hover:text-gray-900"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-            </svg>
-          </button>
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Create Progress Claim</h1>
             <p className="text-gray-600 mt-1">Create a new payment claim with BOQ items</p>

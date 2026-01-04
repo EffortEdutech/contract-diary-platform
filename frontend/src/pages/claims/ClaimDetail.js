@@ -9,6 +9,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import Breadcrumb from '../../components/common/Breadcrumb';
+import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import {
   getClaimById,
@@ -35,12 +37,21 @@ const ClaimDetail = () => {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [contract, setContract] = useState(null);
 
   // Modal state
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentDate, setPaymentDate] = useState('');
+
+  // Build breadcrumb navigation
+  const breadcrumbItems = [
+    { label: 'Contracts', href: '/contracts', icon: '📄' },
+    { label: contract?.contract_number || 'Loading...', href: `/contracts/${contractId}` },
+    { label: 'Claims', href: `/contracts/${contractId}/claims` },
+    { label: `Claim #${claim?.claim_number || '...'}`, href: null }
+  ];
 
   // Load data on mount
   useEffect(() => {
@@ -57,6 +68,16 @@ const ClaimDetail = () => {
     try {
       setLoading(true);
       setError(null);
+
+      // Load contract details
+      const { data: contractData, error: contractError } = await supabase
+        .from('contracts')
+        .select('*')
+        .eq('id', contractId)
+        .single();
+
+      if (contractError) throw contractError;
+      setContract(contractData);
 
       const [claimData, itemsData] = await Promise.all([
         getClaimById(claimId),
@@ -202,17 +223,10 @@ const ClaimDetail = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <Breadcrumb items={breadcrumbItems} />
       {/* Header */}
       <div className="mb-6">
         <div className="flex items-center mb-4">
-          <button
-            onClick={() => navigate(`/contracts/${contractId}/claims`)}
-            className="mr-4 text-gray-600 hover:text-gray-900"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-            </svg>
-          </button>
           <div className="flex-1">
             <div className="flex items-center space-x-3">
               <h1 className="text-3xl font-bold text-gray-900">
