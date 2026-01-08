@@ -1,40 +1,210 @@
 // frontend/src/pages/reports/ClaimsSummaryReport.js
-// With internal date filter
+// UI charts = Recharts
+// PDF charts = Chart.js (offscreen canvas, deterministic sizing)
+
 import React, { useState, useEffect } from 'react';
-import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import {
+  PieChart,
+  Pie,
+  Cell,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer
+} from 'recharts';
+
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
+import { Chart } from 'chart.js/auto';
 import * as XLSX from 'xlsx';
+
 import { format, subMonths } from 'date-fns';
 import { getClaimsSummaryReportData } from '../../services/reportService';
 import DateRangeFilter from '../../components/reports/DateRangeFilter';
 
+import ExportReportModal from '../../components/reports/ExportReportModal';
+
+/* ============================================================
+   CONFIG
+============================================================ */
+
+const COMPANY_NAME = 'USAHA KITA BINA SDN. BHD.';
+
+const STATUS_COLORS = {
+  Draft: '#6b7280',
+  Submitted: '#f59e0b',
+  Approved: '#8b5cf6',
+  Certified: '#3b82f6',
+  Paid: '#10b981'
+};
+
+/* ============================================================
+   UTILITY FUNCTIONS
+============================================================ */
+
+const formatCurrency = (amount) =>
+  new Intl.NumberFormat('ms-MY', {
+    style: 'currency',
+    currency: 'MYR',
+    minimumFractionDigits: 2
+  }).format(amount || 0);
+
+const formatDate = (dateString) =>
+  new Date(dateString).toLocaleDateString('en-MY', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  });
+
+/* ============================================================
+   PDF HELPERS
+============================================================ */
+
+const addHeaderFooter = (doc, subtitle = '') => {
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const pageNumber = doc.internal.getNumberOfPages();
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(12);
+  doc.text(COMPANY_NAME, 14, 12);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.text(`Claims Summary Report FY ${new Date().getFullYear()}`, 14, 18);
+
+  if (subtitle) {
+    doc.text(subtitle, pageWidth - 14, 18, { align: 'right' });
+  }
+
+  doc.setDrawColor(200);
+  doc.line(14, pageHeight - 18, pageWidth - 14, pageHeight - 18);
+
+  doc.setFontSize(8);
+  doc.text(`Generated on ${formatDate(new Date().toISOString())}`, 14, pageHeight - 10);
+  doc.text(`Page ${pageNumber}`, pageWidth - 14, pageHeight - 10, { align: 'right' });
+};
+
+/* ============================================================
+   CHART.JS PDF GENERATORS (OFFSCREEN)
+============================================================ */
+
+// Pie Chart (square, perfect for status distribution)
+const generateStatusPiePNG = async (statusData) => {
+  const canvas = document.createElement('canvas');
+  canvas.width = 600;
+  canvas.height = 600;
+
+  new Chart(canvas, {
+    type: 'pie',
+    data: {
+      labels: statusData.map(d => d.name),
+      datasets: [{
+        data: statusData.map(d => d.value),
+        backgroundColor: statusData.map(
+          d => STATUS_COLORS[d.name] || '#6b7280'
+        )
+      }]
+    },
+    options: {
+      responsive: false,
+      animation: false,
+      plugins: {
+        legend: { position: 'bottom' }
+      }
+    }
+  });
+
+  // ⏳ WAIT for render
+  await new Promise(resolve => requestAnimationFrame(resolve));
+
+  return canvas.toDataURL('image/png');
+};
+
+
+// Bar Chart (wide, landscape)
+const generateMonthlyBarPNG = async (monthlyTrend) => {
+  const canvas = document.createElement('canvas');
+  canvas.width = 1200;
+  canvas.height = 600;
+
+  new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels: monthlyTrend.map(d => d.month),
+      datasets: [
+        {
+          label: 'Claims',
+          data: monthlyTrend.map(d => d.count),
+          backgroundColor: '#3b82f6',
+          yAxisID: 'yCount'
+        },
+        {
+          label: 'Amount (RM)',
+          data: monthlyTrend.map(d => d.amount),
+          backgroundColor: '#10b981',
+          yAxisID: 'yAmount'
+        }
+      ]
+    },
+    options: {
+      responsive: false,
+      animation: false,
+      scales: {
+        yCount: { beginAtZero: true },
+        yAmount: {
+          position: 'right',
+          beginAtZero: true,
+          ticks: {
+            callback: v => `RM ${v.toLocaleString()}`
+          }
+        }
+      }
+    }
+  });
+
+  // ⏳ WAIT
+  await new Promise(resolve => requestAnimationFrame(resolve));
+
+  return canvas.toDataURL('image/png');
+};
+
+
+/* ============================================================
+   COMPONENT
+============================================================ */
+
 const ClaimsSummaryReport = ({ contractId }) => {
   const [reportData, setReportData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [startDate, setStartDate] = useState(format(subMonths(new Date(), 1), 'yyyy-MM-dd'));
   const [endDate, setEndDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [showExport, setShowExport] = useState(false);
 
+  const hasNoData =
+    !reportData ||
+    reportData.totalClaims === 0;
+
+  
   useEffect(() => {
     loadReportData();
   }, [contractId, startDate, endDate]);
 
   const loadReportData = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      setError(null);
       const data = await getClaimsSummaryReportData(contractId, startDate, endDate);
       setReportData(data);
-    } catch (err) {
-      console.error('Error loading claims summary:', err);
-      // Don't set error - let component show empty state instead
+    } catch {
       setReportData({
         totalClaims: 0,
+        avgProcessingTime: 0,
         statusData: [],
         monthlyTrend: [],
-        processingTimes: [],
-        avgProcessingTime: 0,
         allClaims: []
       });
     } finally {
@@ -42,294 +212,308 @@ const ClaimsSummaryReport = ({ contractId }) => {
     }
   };
 
-  const COLORS = {
-    'Draft': '#6b7280',
-    'Submitted': '#f59e0b',
-    'Approved': '#8b5cf6',
-    'Certified': '#3b82f6',
-    'Paid': '#10b981'
-  };
+  /* ============================================================
+     PDF EXPORT
+  ============================================================ */
 
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('ms-MY', {
-      style: 'currency',
-      currency: 'MYR',
-      minimumFractionDigits: 2
-    }).format(amount || 0);
-  };
 
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-MY', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    });
-  };
+  const exportToPDF = async () => {
+  const doc = new jsPDF('p', 'mm', 'a4');
 
-  const exportToPDF = () => {
-    const doc = new jsPDF();
-    
-    doc.setFontSize(16);
-    doc.text('Claims Summary Report', 14, 15);
-    
-    doc.setFontSize(10);
-    doc.text(`Period: ${formatDate(startDate)} - ${formatDate(endDate)}`, 14, 22);
-    doc.text(`Generated: ${formatDate(new Date().toISOString())}`, 14, 28);
+  // =========================
+  // PAGE 1 – SUMMARY (PORTRAIT)
+  // =========================
+  addHeaderFooter(doc, 'Summary');
 
-    doc.autoTable({
-      startY: 35,
-      head: [['Metric', 'Value']],
-      body: [
-        ['Total Claims', reportData?.totalClaims || 0],
-        ['Avg Processing Time', `${reportData?.avgProcessingTime || 0} days`]
-      ],
-      theme: 'grid',
-      headStyles: { fillColor: [59, 130, 246] }
-    });
+  doc.setFontSize(16);
+  doc.text('Claims Summary Report', 14, 30);
 
-    if (reportData?.allClaims && reportData.allClaims.length > 0) {
-      doc.autoTable({
-        startY: doc.lastAutoTable.finalY + 10,
-        head: [['Claim No.', 'Date', 'Amount', 'Status']],
-        body: reportData.allClaims.map(claim => [
-          claim.claim_number,
-          formatDate(claim.claim_date),
-          formatCurrency(claim.claim_amount),
-          claim.status
-        ]),
-        theme: 'striped',
-        headStyles: { fillColor: [59, 130, 246] }
-      });
+  doc.setFontSize(10);
+  doc.text(
+    `Period: ${formatDate(startDate)} - ${formatDate(endDate)}`,
+    14,
+    38
+  );
+
+  autoTable(doc, {
+    startY: 45,
+    head: [['Metric', 'Value']],
+    body: [
+      ['Total Claims', reportData.totalClaims],
+      ['Avg Processing Time', `${reportData.avgProcessingTime} days`]
+    ],
+    theme: 'grid',
+    headStyles: { fillColor: [59, 130, 246] },
+    columnStyles: {
+      1: { halign: 'right' }
     }
+  });
 
-    doc.save(`Claims_Summary_${new Date().toISOString().split('T')[0]}.pdf`);
-  };
+  // =========================
+  // PAGE 2 – CLAIMS TABLE
+  // =========================
+  if (reportData.allClaims?.length > 0) {
+    doc.addPage();
+    addHeaderFooter(doc, 'Claims List');
+
+    autoTable(doc, {
+      startY: 30,
+      head: [['Claim No.', 'Date', 'Amount (RM)', 'Status']],
+      body: reportData.allClaims.map(c => [
+        c.claim_number,
+        formatDate(c.claim_date),
+        formatCurrency(c.claim_amount),
+        c.status
+      ]),
+      theme: 'striped',
+      headStyles: { fillColor: [59, 130, 246] },
+      columnStyles: {
+        2: { halign: 'right' }
+      }
+    });
+  }
+
+  // =========================
+  // PAGE 3 – STATUS PIE (LANDSCAPE)
+  // =========================
+  if (reportData.statusData?.length > 0) {
+    const statusImg = await generateStatusPiePNG(reportData.statusData);
+
+    doc.addPage('a4', 'landscape');
+    addHeaderFooter(doc, 'Claims by Status');
+
+    doc.setFontSize(14);
+    doc.text('Claims Distribution by Status', 14, 30);
+
+    // Center square chart
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const chartSize = 110;
+    const x = (pageWidth - chartSize) / 2;
+
+    doc.addImage(statusImg, 'PNG', x, 40, chartSize, chartSize);
+  }
+
+  // =========================
+  // PAGE 4 – MONTHLY TREND (LANDSCAPE)
+  // =========================
+  if (reportData.monthlyTrend?.length > 0) {
+    const monthlyImg = await generateMonthlyBarPNG(reportData.monthlyTrend);
+
+    doc.addPage('a4', 'landscape');
+    addHeaderFooter(doc, 'Monthly Trend');
+
+    doc.setFontSize(14);
+    doc.text('Monthly Claims Trend', 14, 30);
+
+    doc.addImage(monthlyImg, 'PNG', 14, 40, 260, 120);
+  }
+
+  // =========================
+  // SAVE
+  // =========================
+  doc.save(
+    `Claims_Summary_${new Date().toISOString().split('T')[0]}.pdf`
+  );
+  };  
 
   const exportToExcel = () => {
-    const summaryData = [
+    if (!reportData) return;
+
+    // =========================
+    // SUMMARY SHEET DATA
+    // =========================
+    const summaryRows = [
       ['Claims Summary Report'],
-      ['Period:', `${formatDate(startDate)} - ${formatDate(endDate)}`],
-      ['Generated:', formatDate(new Date().toISOString())],
+      ['Company', 'USAHA KITA BINA SDN. BHD.'],
+      ['Period', `${formatDate(startDate)} - ${formatDate(endDate)}`],
+      ['Generated', formatDate(new Date().toISOString())],
       [],
-      ['Summary'],
-      ['Total Claims', reportData?.totalClaims || 0],
-      ['Avg Processing Time', `${reportData?.avgProcessingTime || 0} days`]
+      ['Metric', 'Value'],
+      ['Total Claims', reportData.totalClaims],
+      ['Avg Processing Time (days)', reportData.avgProcessingTime]
     ];
 
-    const claimsData = reportData?.allClaims?.length > 0 ? [
-      [],
-      ['Claims Detail'],
-      ['Claim No.', 'Date', 'Amount', 'Status'],
-      ...reportData.allClaims.map(claim => [
-        claim.claim_number,
-        formatDate(claim.claim_date),
-        claim.claim_amount,
-        claim.status
-      ])
-    ] : [];
+    // =========================
+    // CLAIMS TABLE DATA
+    // =========================
+    const claimsRows = reportData.allClaims?.length
+      ? [
+          [],
+          ['Claims List'],
+          ['Claim No.', 'Date', 'Amount (RM)', 'Status'],
+          ...reportData.allClaims.map(c => [
+            c.claim_number,
+            formatDate(c.claim_date),
+            c.claim_amount, // keep number for Excel
+            c.status
+          ])
+        ]
+      : [];
 
-    const ws = XLSX.utils.aoa_to_sheet([...summaryData, ...claimsData]);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Claims Summary');
-    XLSX.writeFile(wb, `Claims_Summary_${new Date().toISOString().split('T')[0]}.xlsx`);
+    // =========================
+    // CREATE WORKBOOK
+    // =========================
+    const worksheet = XLSX.utils.aoa_to_sheet([
+      ...summaryRows,
+      ...claimsRows
+    ]);
+
+    // Format RM column (Excel style)
+    const range = XLSX.utils.decode_range(worksheet['!ref']);
+    for (let R = 0; R <= range.e.r; ++R) {
+      const cellAddress = XLSX.utils.encode_cell({ r: R, c: 2 });
+      if (worksheet[cellAddress] && typeof worksheet[cellAddress].v === 'number') {
+        worksheet[cellAddress].z = '"RM"#,##0.00';
+      }
+    }
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Claims Summary');
+
+    XLSX.writeFile(
+      workbook,
+      `Claims_Summary_${new Date().toISOString().split('T')[0]}.xlsx`
+    );
   };
 
-  // Always render filter and conditional content together
-  const hasNoData = !reportData?.totalClaims || reportData.totalClaims === 0;
 
-  return (
-    <div className="space-y-6">
-      {/* Date Range Filter - Always visible */}
-      <DateRangeFilter
-        startDate={startDate}
-        endDate={endDate}
-        onStartDateChange={setStartDate}
-        onEndDateChange={setEndDate}
-      />
 
-      {/* Loading State */}
-      {loading && (
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-        </div>
-      )}
 
-      {/* No Data State */}
-      {!loading && hasNoData && (
-        <div className="bg-purple-50 border border-purple-200 rounded-lg p-8 text-center">
-          <div className="text-purple-400 text-5xl mb-4">📄</div>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No Claims Data</h3>
-          <p className="text-gray-500">
-            No claims found for the selected date range. Create claims to see summary analysis.
-          </p>
-        </div>
-      )}
+  /* ============================================================
+     UI
+  ============================================================ */
 
-      {/* Main Content - Only when data exists */}
-      {!loading && !hasNoData && (
-        <>
+  if (loading) {
+    return <div className="h-64 flex items-center justify-center">Loading…</div>;
+  }
 
-      {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="bg-white p-6 rounded-lg shadow border border-gray-200">
-          <div className="text-sm text-gray-500 mb-1">Total Claims</div>
-          <div className="text-3xl font-bold text-gray-900">{reportData.totalClaims}</div>
-        </div>
-        <div className="bg-blue-50 p-6 rounded-lg shadow border border-blue-200">
-          <div className="text-sm text-blue-600 mb-1">Average Processing Time</div>
-          <div className="text-3xl font-bold text-blue-700">{reportData.avgProcessingTime} days</div>
-        </div>
+return (
+  <div className="space-y-6">
+    {/* Date Filter – always visible */}
+    <DateRangeFilter
+      startDate={startDate}
+      endDate={endDate}
+      onStartDateChange={setStartDate}
+      onEndDateChange={setEndDate}
+    />
+
+    {/* Loading */}
+    {loading && (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
       </div>
+    )}
 
-      {/* Status Distribution Chart */}
-      {reportData.statusData && reportData.statusData.length > 0 && (
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Claims by Status</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                data={reportData.statusData}
-                cx="50%"
-                cy="50%"
-                labelLine={false}
-                label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                outerRadius={100}
-                fill="#8884d8"
-                dataKey="value"
-              >
-                {reportData.statusData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[entry.name] || '#6b7280'} />
-                ))}
-              </Pie>
-              <Tooltip />
-              <Legend />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-      )}
-
-      {/* Monthly Trend Chart */}
-      {reportData.monthlyTrend && reportData.monthlyTrend.length > 0 && (
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Monthly Claims Trend</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={reportData.monthlyTrend}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="month" />
-              <YAxis yAxisId="left" />
-              <YAxis yAxisId="right" orientation="right" />
-              <Tooltip />
-              <Legend />
-              <Bar yAxisId="left" dataKey="count" fill="#3b82f6" name="Number of Claims" />
-              <Bar yAxisId="right" dataKey="amount" fill="#10b981" name="Total Amount (RM)" />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      )}
-
-      {/* Processing Time Analysis */}
-      {reportData.processingTimes && reportData.processingTimes.length > 0 && (
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Processing Time by Claim</h3>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Claim No.</th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Processing Days</th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {reportData.processingTimes.map((item, index) => (
-                  <tr key={index} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm font-medium text-gray-900">{item.claimNumber}</td>
-                    <td className="px-4 py-3 text-sm text-center">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        item.days <= 7 ? 'bg-green-100 text-green-800' :
-                        item.days <= 14 ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-red-100 text-red-800'
-                      }`}>
-                        {item.days} days
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-center">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        item.status === 'paid' ? 'bg-green-100 text-green-800' :
-                        item.status === 'certified' ? 'bg-blue-100 text-blue-800' :
-                        item.status === 'approved' ? 'bg-purple-100 text-purple-800' :
-                        item.status === 'submitted' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-gray-100 text-gray-800'
-                      }`}>
-                        {item.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* Claims List */}
-      {reportData.allClaims && reportData.allClaims.length > 0 && (
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">All Claims</h3>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Claim No.</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Amount</th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {reportData.allClaims.map((claim, index) => (
-                  <tr key={index} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm font-medium text-gray-900">{claim.claim_number}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{formatDate(claim.claim_date)}</td>
-                    <td className="px-4 py-3 text-sm text-right font-medium text-gray-900">{formatCurrency(claim.claim_amount)}</td>
-                    <td className="px-4 py-3 text-sm text-center">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        claim.status === 'paid' ? 'bg-green-100 text-green-800' :
-                        claim.status === 'certified' ? 'bg-blue-100 text-blue-800' :
-                        claim.status === 'approved' ? 'bg-purple-100 text-purple-800' :
-                        claim.status === 'submitted' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-gray-100 text-gray-800'
-                      }`}>
-                        {claim.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* Export Buttons */}
-      <div className="flex gap-3">
-        <button
-          onClick={exportToPDF}
-          className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
-        >
-          📄 Export PDF
-        </button>
-        <button
-          onClick={exportToExcel}
-          className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
-        >
-          📊 Export Excel
-        </button>
+    {/* No Data */}
+    {!loading && hasNoData && (
+      <div className="bg-purple-50 border border-purple-200 rounded-lg p-8 text-center">
+        <div className="text-5xl mb-4">📄</div>
+        <h3 className="text-lg font-medium mb-2">
+          No Claims Data
+        </h3>
+        <p className="text-gray-600">
+          No claims found for the selected period.
+        </p>
       </div>
-        </>
-      )}
-    </div>
-  );
+    )}
+
+    {/* MAIN CONTENT */}
+    {!loading && !hasNoData && (
+      <>
+        {/* ===== STATUS PIE (UI) ===== */}
+        {reportData.statusData?.length > 0 && (
+          <div className="bg-white p-6 rounded-lg shadow">
+            <h3 className="text-lg font-semibold mb-4">
+              Claims by Status
+            </h3>
+
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={reportData.statusData}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={100}
+                  label
+                >
+                  {reportData.statusData.map((entry, i) => (
+                    <Cell
+                      key={i}
+                      fill={
+                        STATUS_COLORS[entry.name] ||
+                        '#6b7280'
+                      }
+                    />
+                  ))}
+                </Pie>
+                <Tooltip />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+
+        {/* ===== MONTHLY BAR (UI) ===== */}
+        {reportData.monthlyTrend?.length > 0 && (
+          <div className="bg-white p-6 rounded-lg shadow">
+            <h3 className="text-lg font-semibold mb-4">
+              Monthly Claims Trend
+            </h3>
+
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={reportData.monthlyTrend}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="month" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Bar
+                  dataKey="count"
+                  fill="#3b82f6"
+                  name="Number of Claims"
+                />
+                <Bar
+                  dataKey="amount"
+                  fill="#10b981"
+                  name="Amount (RM)"
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+
+        {/* ===== EXPORT BUTTON ===== */}
+        <div className="flex gap-3">
+          <button
+            onClick={() => setShowExport(true)}
+            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+          >
+            📄 Export PDF
+          </button>
+
+          <ExportReportModal
+            open={showExport}
+            onClose={() => setShowExport(false)}
+            reportType="claims"
+            reportData={reportData}
+            contract={reportData.contract}
+          />
+
+
+          <button
+            onClick={exportToExcel}
+            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+          >
+            📊 Export Excel
+          </button>
+        </div>
+      </>
+    )}
+  </div>
+);
+
 };
 
 export default ClaimsSummaryReport;

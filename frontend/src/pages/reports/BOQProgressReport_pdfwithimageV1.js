@@ -4,17 +4,13 @@ import React, { useState, useEffect } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 import jsPDF from 'jspdf';
 import autoTable from "jspdf-autotable";
-import { Chart } from 'chart.js/auto';
 import * as XLSX from 'xlsx';
 import { getBOQProgressReportData } from '../../services/reportService';
-import ExportBOQModal from '../../components/reports/ExportBOQModal';
-import ExportReportModal from '../../components/reports/ExportReportModal';
 
 const BOQProgressReport = ({ contractId }) => {
   const [reportData, setReportData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [showExport, setShowExport] = useState(false);
 
   useEffect(() => {
     loadReportData();
@@ -40,96 +36,21 @@ const BOQProgressReport = ({ contractId }) => {
     'Not Started': '#6b7280'
   };
 
-  const addHeaderFooter = (doc, subtitle = '') => {
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const pageNumber = doc.internal.getNumberOfPages();
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(12);
-    doc.text('USAHA KITA BINA SDN. BHD.', 14, 12);
-
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.text('BOQ Progress Report', 14, 18);
-
-    if (subtitle) {
-      doc.text(subtitle, pageWidth - 14, 18, { align: 'right' });
-    }
-
-    doc.setDrawColor(200);
-    doc.line(14, pageHeight - 18, pageWidth - 14, pageHeight - 18);
-
-    doc.setFontSize(8);
-    doc.text(
-      `Generated on ${new Date().toLocaleDateString('en-MY')}`,
-      14,
-      pageHeight - 10
-    );
-    doc.text(
-      `Page ${pageNumber}`,
-      pageWidth - 14,
-      pageHeight - 10,
-      { align: 'right' }
-    );
-  };
-
-  const generateBOQStatusPiePNG = async (statusData, COLORS) => {
-    const canvas = document.createElement('canvas');
-    canvas.width = 600;
-    canvas.height = 600;
-
-    new Chart(canvas, {
-      type: 'pie',
-      data: {
-        labels: statusData.map(d => d.name),
-        datasets: [
-          {
-            data: statusData.map(d => d.value),
-            backgroundColor: statusData.map(
-              d => COLORS[d.name] || '#6b7280'
-            )
-          }
-        ]
-      },
-      options: {
-        responsive: false,
-        animation: false,
-        plugins: {
-          legend: { position: 'bottom' }
-        }
-      }
-    });
-
-    await new Promise(r => requestAnimationFrame(r));
-    return canvas.toDataURL('image/png');
-  };
-
-
-  const exportToPDF = async () => {
-    const doc = new jsPDF('p', 'mm', 'a4');
-
-    // =========================
-    // PAGE 1 – SUMMARY
-    // =========================
-    addHeaderFooter(doc, 'Summary');
-
+  const exportToPDF = () => {
+    const doc = new jsPDF();
+    
     doc.setFontSize(16);
-    doc.text('BOQ Progress Report', 14, 30);
-
+    doc.text('BOQ Progress Report', 14, 15);
+    
     doc.setFontSize(10);
-    doc.text(
-      `Generated: ${new Date().toLocaleDateString('en-MY')}`,
-      14,
-      38
-    );
-
+    doc.text(`Generated: ${new Date().toLocaleDateString('en-MY', { 
+      day: '2-digit', 
+      month: '2-digit', 
+      year: 'numeric' 
+    })}`, 14, 22);
+    
     if (reportData?.boq) {
-      doc.text(
-        `BOQ: ${reportData.boq.boq_number} - ${reportData.boq.title}`,
-        14,
-        45
-      );
+      doc.text(`BOQ: ${reportData.boq.boq_number} - ${reportData.boq.title}`, 14, 28);
     }
 
     const summary = reportData?.summary || {
@@ -141,7 +62,7 @@ const BOQProgressReport = ({ contractId }) => {
     };
 
     autoTable(doc, {
-      startY: 55,
+      startY: 35,
       head: [['Metric', 'Value']],
       body: [
         ['Total Items', summary.total],
@@ -154,15 +75,9 @@ const BOQProgressReport = ({ contractId }) => {
       headStyles: { fillColor: [59, 130, 246] }
     });
 
-    // =========================
-    // PAGE 2 – SECTIONS TABLE
-    // =========================
-    if (reportData?.sections?.length > 0) {
-      doc.addPage();
-      addHeaderFooter(doc, 'Sections');
-
+    if (reportData?.sections && reportData.sections.length > 0) {
       autoTable(doc, {
-        startY: 30,
+        startY: doc.lastAutoTable.finalY + 10,
         head: [['Section', 'Items', 'Completed', 'Progress %']],
         body: reportData.sections.map(section => [
           section.title,
@@ -175,36 +90,8 @@ const BOQProgressReport = ({ contractId }) => {
       });
     }
 
-    // =========================
-    // PAGE 3 – STATUS PIE (LANDSCAPE)
-    // =========================
-    if (reportData?.statusData?.length > 0) {
-      const pieImg = await generateBOQStatusPiePNG(
-        reportData.statusData,
-        COLORS
-      );
-
-      doc.addPage('a4', 'landscape');
-      addHeaderFooter(doc, 'Completion Status');
-
-      doc.setFontSize(14);
-      doc.text('BOQ Completion Status Distribution', 14, 30);
-
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const chartSize = 110;
-      const x = (pageWidth - chartSize) / 2;
-
-      doc.addImage(pieImg, 'PNG', x, 40, chartSize, chartSize);
-    }
-
-    // =========================
-    // SAVE
-    // =========================
-    doc.save(
-      `BOQ_Progress_Report_${new Date().toISOString().split('T')[0]}.pdf`
-    );
+    doc.save(`BOQ_Progress_Report_${new Date().toISOString().split('T')[0]}.pdf`);
   };
-
 
   const exportToExcel = () => {
     const summary = reportData?.summary || {
@@ -294,8 +181,6 @@ const BOQProgressReport = ({ contractId }) => {
     notStarted: 0,
     completionPercentage: 0
   };
-
-
 
   return (
     <div className="space-y-6">
@@ -420,43 +305,19 @@ const BOQProgressReport = ({ contractId }) => {
       {/* Export Buttons */}
       <div className="flex gap-3">
         <button
-          onClick={() => setShowExport(true)}
-          className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+          onClick={exportToPDF}
+          className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
         >
           📄 Export PDF
         </button>
-
-        {showExport && reportData && (
-          <ExportReportModal
-            open={showExport}
-            onClose={() => setShowExport(false)}
-            reportType="boq"
-            reportData={reportData}
-            contract={null}   // until contract object exists
-          />
-        )}
-
-
-
         <button
           onClick={exportToExcel}
           className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
         >
           📊 Export Excel
         </button>
-
-        {showExport && (
-          <ExportBOQModal
-            data={reportData}
-            onClose={() => setShowExport(false)}
-          />
-        )}
-
       </div>
     </div>
-
-
-
   );
 };
 

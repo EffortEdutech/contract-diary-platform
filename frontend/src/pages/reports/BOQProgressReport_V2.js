@@ -7,14 +7,11 @@ import autoTable from "jspdf-autotable";
 import { Chart } from 'chart.js/auto';
 import * as XLSX from 'xlsx';
 import { getBOQProgressReportData } from '../../services/reportService';
-import ExportBOQModal from '../../components/reports/ExportBOQModal';
-import ExportReportModal from '../../components/reports/ExportReportModal';
 
 const BOQProgressReport = ({ contractId }) => {
   const [reportData, setReportData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [showExport, setShowExport] = useState(false);
 
   useEffect(() => {
     loadReportData();
@@ -295,8 +292,6 @@ const BOQProgressReport = ({ contractId }) => {
     completionPercentage: 0
   };
 
-
-
   return (
     <div className="space-y-6">
       {/* Statistics Cards */}
@@ -420,43 +415,19 @@ const BOQProgressReport = ({ contractId }) => {
       {/* Export Buttons */}
       <div className="flex gap-3">
         <button
-          onClick={() => setShowExport(true)}
-          className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+          onClick={exportToPDF}
+          className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
         >
           📄 Export PDF
         </button>
-
-        {showExport && reportData && (
-          <ExportReportModal
-            open={showExport}
-            onClose={() => setShowExport(false)}
-            reportType="boq"
-            reportData={reportData}
-            contract={null}   // until contract object exists
-          />
-        )}
-
-
-
         <button
           onClick={exportToExcel}
           className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
         >
           📊 Export Excel
         </button>
-
-        {showExport && (
-          <ExportBOQModal
-            data={reportData}
-            onClose={() => setShowExport(false)}
-          />
-        )}
-
       </div>
     </div>
-
-
-
   );
 };
 

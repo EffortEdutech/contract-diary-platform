@@ -9,12 +9,21 @@ import DiaryReport from './DiaryReport';
 import BOQProgressReport from './BOQProgressReport';
 import ClaimsSummaryReport from './ClaimsSummaryReport';
 import { supabase } from '../../lib/supabase';
+import Breadcrumb from '../../components/common/Breadcrumb';
 
 const Reports = () => {
   const { contractId } = useParams();
   const [activeTab, setActiveTab] = useState('statistics');
   const [contract, setContract] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Build breadcrumb navigation
+  const breadcrumbItems = [
+    { label: 'Contracts', href: '/contracts', icon: '📄' },
+    { label: contract?.contract_number || 'Loading...', href: `/contracts/${contractId}` },  // ✅ NEW
+    { label: 'Reports', href: null }
+  ];    
 
   useEffect(() => {
     loadContract();
@@ -69,10 +78,9 @@ const Reports = () => {
     <div className="space-y-6">
       {/* Header */}
       <div className="bg-white rounded-lg shadow p-6">
-        <h1 className="text-2xl font-bold text-gray-900">Reports & Analytics</h1>
-        <p className="text-gray-500 mt-1">
-          {contract.contract_number} - {contract.project_name}
-        </p>
+        <Breadcrumb items={breadcrumbItems} />
+        <h1 className="text-1xl font-bold text-gray-900">Reports & Analytics</h1>
+        <p className="text-gray-500 mt-1">{contract.project_name}</p>
       </div>
 
       {/* Tab Navigation - STAYS IN SAME POSITION! */}

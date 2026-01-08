@@ -4,8 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import jsPDF from 'jspdf';
 import autoTable from "jspdf-autotable";
-import { Chart } from 'chart.js/auto';
-
+import { toPng } from 'html-to-image';
 import * as XLSX from 'xlsx';
 import { format, subMonths } from 'date-fns';
 import { getFinancialReportData } from '../../services/reportService';
@@ -93,75 +92,14 @@ const FinancialReport = ({ contractId }) => {
     doc.text(`Page ${pageNumber}`, pageWidth - 14, pageHeight - 10, { align: 'right' });
   };
 
-  const generateCumulativeLinePNG = async (data) => {
-    const canvas = document.createElement('canvas');
-    canvas.width = 1200;
-    canvas.height = 600;
+  const captureChartImage = async (elementId) => {
+    const node = document.getElementById(elementId);
+    if (!node) return null;
 
-    new Chart(canvas, {
-      type: 'line',
-      data: {
-        labels: data.map(d => d.claimNumber),
-        datasets: [
-          {
-            label: 'Cumulative Amount (RM)',
-            data: data.map(d => d.amount),
-            borderColor: '#3b82f6',
-            backgroundColor: '#3b82f6',
-            tension: 0.3
-          }
-        ]
-      },
-      options: {
-        responsive: false,
-        animation: false,
-        scales: {
-          y: {
-            ticks: {
-              callback: v => `RM ${v.toLocaleString()}`
-            }
-          }
-        }
-      }
+    return await toPng(node, {
+      backgroundColor: 'white',
+      pixelRatio: 2
     });
-
-    await new Promise(r => requestAnimationFrame(r));
-    return canvas.toDataURL('image/png');
-  };
-
-  const generateMonthlyBarPNG = async (data) => {
-    const canvas = document.createElement('canvas');
-    canvas.width = 1200;
-    canvas.height = 600;
-
-    new Chart(canvas, {
-      type: 'bar',
-      data: {
-        labels: data.map(d => d.month),
-        datasets: [
-          {
-            label: 'Claim Amount (RM)',
-            data: data.map(d => d.amount),
-            backgroundColor: '#3b82f6'
-          }
-        ]
-      },
-      options: {
-        responsive: false,
-        animation: false,
-        scales: {
-          y: {
-            beginAtZero: true,
-            ticks: {
-              callback: v => `RM ${v.toLocaleString()}`
-            }
-          }
-        }
-      }
-    });
-
-    await new Promise(r => requestAnimationFrame(r));
-    return canvas.toDataURL('image/png');
   };
 
 
@@ -219,40 +157,21 @@ const FinancialReport = ({ contractId }) => {
       });
     }
 
-    // =========================
-    // CUMULATIVE CHART (LANDSCAPE)
-    // =========================
-    if (reportData?.cumulativeData?.length > 0) {
-      const img = await generateCumulativeLinePNG(
-        reportData.cumulativeData
-      );
-
-      doc.addPage('a4', 'landscape');
+    // --- Charts ---
+    const cumulativeImg = await captureChartImage('cumulative-chart');
+    if (cumulativeImg) {doc.addPage('a4', 'landscape');
       addHeaderFooter(doc, 'Cumulative Claims');
-
-      doc.setFontSize(14);
       doc.text('Cumulative Claim Amount', 14, 30);
-
-      doc.addImage(img, 'PNG', 14, 40, 260, 120);
+      doc.addImage(cumulativeImg, 'PNG', 14, 40, 260, 110);
     }
 
-    // =========================
-    // MONTHLY CHART (LANDSCAPE)
-    // =========================
-    if (reportData?.monthlyBreakdown?.length > 0) {
-      const img = await generateMonthlyBarPNG(
-        reportData.monthlyBreakdown
-      );
-
+    const monthlyImg = await captureChartImage('monthly-chart');
+    if (monthlyImg) {
       doc.addPage('a4', 'landscape');
       addHeaderFooter(doc, 'Monthly Claims');
-
-      doc.setFontSize(14);
       doc.text('Monthly Claims Breakdown', 14, 30);
-
-      doc.addImage(img, 'PNG', 14, 40, 260, 120);
+      doc.addImage(monthlyImg, 'PNG', 14, 40, 260, 110);
     }
-
 
     doc.save(`Financial_Report_${new Date().toISOString().split('T')[0]}.pdf`);
   };

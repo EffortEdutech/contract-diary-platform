@@ -291,6 +291,10 @@ export const getMemberStats = async (contractId) => {
 
     if (membersError) throw membersError;
 
+    const activeMembers = members.filter(m => m.invitation_status === 'active');
+    const pendingMembers = members.filter(m => m.invitation_status === 'pending');
+    const removedMembers = members.filter(m => m.invitation_status === 'removed');
+
     // Get pending invitations
     const { data: pendingInvites, error: invitesError } = await supabase
       .from('invitations')
@@ -314,35 +318,38 @@ export const getMemberStats = async (contractId) => {
 
     // Calculate comprehensive stats
     const stats = {
-      total: members.length + (pendingInvites?.length || 0),
-      active: members.filter(m => m.invitation_status === 'active').length,
-      pending: (pendingInvites?.length || 0),
-      removed: members.filter(m => m.invitation_status === 'removed').length,
-      
+      total:
+        activeMembers.length +
+        pendingMembers.length +
+        removedMembers.length,
+
+      active: activeMembers.length,
+      pending: pendingMembers.length,
+      removed: removedMembers.length,
+
       byRole: {
-        owner: members.filter(m => m.member_role === 'owner').length,
-        admin: members.filter(m => m.member_role === 'admin').length,
-        editor: members.filter(m => m.member_role === 'editor').length,
-        viewer: members.filter(m => m.member_role === 'viewer').length,
-        submitter: members.filter(m => m.member_role === 'submitter').length,
-        reviewer: members.filter(m => m.member_role === 'reviewer').length,
-        approver: members.filter(m => m.member_role === 'approver').length,
-        auditor: members.filter(m => m.member_role === 'auditor').length,
-        readonly: members.filter(m => m.member_role === 'readonly').length
+        owner: activeMembers.filter(m => m.member_role === 'owner').length,
+        admin: activeMembers.filter(m => m.member_role === 'admin').length,
+        editor: activeMembers.filter(m => m.member_role === 'editor').length,
+        viewer: activeMembers.filter(m => m.member_role === 'viewer').length,
+        submitter: activeMembers.filter(m => m.member_role === 'submitter').length,
+        reviewer: activeMembers.filter(m => m.member_role === 'reviewer').length,
+        approver: activeMembers.filter(m => m.member_role === 'approver').length,
+        auditor: activeMembers.filter(m => m.member_role === 'auditor').length,
+        readonly: activeMembers.filter(m => m.member_role === 'readonly').length
       },
-      
+
       byCompanyType: {
-        main_contractor: members.filter(m => profileMap[m.user_id] === 'main_contractor').length,
-        subcontractor: members.filter(m => profileMap[m.user_id] === 'subcontractor').length,
-        consultant: members.filter(m => profileMap[m.user_id] === 'consultant').length,
-        supplier: members.filter(m => profileMap[m.user_id] === 'supplier').length
+        main_contractor: activeMembers.filter(m => profileMap[m.user_id] === 'main_contractor').length,
+        subcontractor: activeMembers.filter(m => profileMap[m.user_id] === 'subcontractor').length,
+        consultant: activeMembers.filter(m => profileMap[m.user_id] === 'consultant').length,
+        supplier: activeMembers.filter(m => profileMap[m.user_id] === 'supplier').length
       },
-      
+
       // Additional insights
       pending_invitations_list: pendingInvites || [],
-      total_with_access: members.filter(m => m.invitation_status === 'active').length
+      total_with_access: activeMembers.length
     };
-
     return stats;
   } catch (error) {
     console.error('Error getting member stats:', error);
