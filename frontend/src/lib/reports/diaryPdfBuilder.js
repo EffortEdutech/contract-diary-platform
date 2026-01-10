@@ -1,11 +1,10 @@
-// frontend/src/lib/reports/claimsPdfBuilder.js
-// COMPLETE VERSION - With charts like BOQ
+// frontend/src/lib/reports/diaryPdfBuilder.js
+// Diary Report PDF Builder with charts
 
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
 import { 
-  formatCurrencyMY,
   formatDateMY
 } from '../../utils/reports/BaseReportExporter';
 
@@ -15,12 +14,12 @@ import {
 } from '../../utils/reports/chartGenerators';
 
 /**
- * Build Claims Summary Report PDF
- * COMPLETE: With summary, status chart, monthly trend chart, claims list
+ * Build Diary Summary Report PDF
+ * Structure: Summary → Weather Chart → Manpower Chart → All Diaries
  */
-export const buildClaimsPdf = async ({ data, settings, contract }) => {
+export const buildDiaryPdf = async ({ data, settings, contract }) => {
   console.log('==========================================');
-  console.log('CLAIMS PDF BUILDER CALLED (WITH CHARTS)');
+  console.log('DIARY PDF BUILDER CALLED');
   console.log('Data structure:', Object.keys(data));
   console.log('==========================================');
 
@@ -33,11 +32,11 @@ export const buildClaimsPdf = async ({ data, settings, contract }) => {
 
   const pageWidth = doc.internal.pageSize.getWidth();
 
-  // CLAIMS HEADER
+  // DIARY HEADER
   doc.setFontSize(16);
   doc.setFont('helvetica', 'bold');
-  doc.text('CLAIMS SUMMARY REPORT', pageWidth / 2, 15, { align: 'center' });
-  console.log('✅ Added CLAIMS header');
+  doc.text('DIARY SUMMARY REPORT', pageWidth / 2, 15, { align: 'center' });
+  console.log('✅ Added DIARY header');
 
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
@@ -57,80 +56,67 @@ export const buildClaimsPdf = async ({ data, settings, contract }) => {
 
   // Content flags
   const includeSummary = settings.content?.includeSummary !== false;
-  const includeStatusChart = settings.content?.includeStatusChart !== false;
-  const includeMonthlyChart = settings.content?.includeSectionProgress !== false; // Using this for monthly chart
-  const includeClaimsList = true; // Always show claims list
+  const includeWeatherChart = settings.content?.includeStatusChart !== false; // Using statusChart flag
+  const includeManpowerChart = settings.content?.includeSectionProgress !== false; // Using sectionProgress flag
+  const includeDiariesList = true; // Always show diaries
 
   console.log('Content flags:', {
     includeSummary,
-    includeStatusChart,
-    includeMonthlyChart,
-    includeClaimsList
+    includeWeatherChart,
+    includeManpowerChart,
+    includeDiariesList
   });
+
+  const stats = data.statistics || {};
 
   // ===========================================
   // PAGE 1: SUMMARY TABLE (PORTRAIT)
   // ===========================================
   if (includeSummary) {
-    console.log('Adding summary section...');
+    console.log('Adding diary summary...');
     
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
-    doc.text('CLAIMS OVERVIEW', 14, cursorY);
+    doc.text('DIARY OVERVIEW', 14, cursorY);
     cursorY += 8;
 
-    const summaryData = [];
-    
-    if (data.totalClaims !== undefined) {
-      summaryData.push(['Total Claims', data.totalClaims]);
-    }
-    
-    if (data.avgProcessingTime !== undefined) {
-      summaryData.push(['Avg Processing Time', `${data.avgProcessingTime} days`]);
-    }
+    autoTable(doc, {
+      startY: cursorY,
+      theme: 'grid',
+      head: [['Metric', 'Value']],
+      body: [
+        ['Total Diaries', stats.totalDiaries || 0],
+        ['Total Photos', stats.totalPhotos || 0],
+        ['Issues Reported', stats.issuesCount || 0]
+      ],
+      styles: { fontSize: 10 },
+      headStyles: { fillColor: [59, 130, 246] },
+      columnStyles: {
+        0: { cellWidth: 100 },
+        1: { cellWidth: 70, halign: 'right' }
+      }
+    });
 
-    // Status breakdown
-    if (data.statusData && data.statusData.length > 0) {
-      summaryData.push(['', '']); // Blank row
-      summaryData.push(['STATUS BREAKDOWN', '']);
-      data.statusData.forEach(status => {
-        summaryData.push([`  ${status.name}`, status.value]);
-      });
-    }
-
-    if (summaryData.length > 0) {
-      autoTable(doc, {
-        startY: cursorY,
-        theme: 'grid',
-        head: [['Metric', 'Value']],
-        body: summaryData,
-        styles: { fontSize: 10 },
-        headStyles: { fillColor: [59, 130, 246] },
-        columnStyles: {
-          0: { cellWidth: 100 },
-          1: { cellWidth: 70, halign: 'right' }
-        }
-      });
-
-      console.log('✅ Summary table added');
-    }
+    console.log('✅ Diary summary added');
   }
 
   // ===========================================
-  // PAGE 2: STATUS PIE CHART (LANDSCAPE)
+  // PAGE 2: WEATHER PIE CHART (LANDSCAPE)
   // ===========================================
-  if (includeStatusChart && data.statusData && data.statusData.length > 0) {
-    console.log('Adding status chart...');
+  const weatherData = Object.entries(stats.weatherDistribution || {}).map(([name, value]) => ({ name, value }));
+  
+  if (includeWeatherChart && weatherData.length > 0) {
+    console.log('Adding weather chart...');
     
     // NEW PAGE - LANDSCAPE for chart
     doc.addPage('a4', 'landscape');
     
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
-    doc.text('CLAIMS BY STATUS', 14, 20);
+    doc.text('WEATHER DISTRIBUTION', 14, 20);
 
     try {
-      const chartImage = await generateStatusChartImage(data.statusData);
+      const chartImage = await generateStatusChartImage(weatherData);
       
       if (chartImage) {
         // Landscape page width
@@ -139,40 +125,40 @@ export const buildClaimsPdf = async ({ data, settings, contract }) => {
         const chartHeight = (chartWidth / 600) * 400;
         
         doc.addImage(chartImage, 'PNG', 20, 30, chartWidth, chartHeight);
-        console.log('✅ Status chart added (landscape page)');
+        console.log('✅ Weather chart added (landscape page)');
       } else {
-        console.warn('⚠️ Status chart generation returned null');
+        console.warn('⚠️ Weather chart generation returned null');
         doc.setFontSize(10);
         doc.text('Chart could not be generated', 20, 30);
       }
     } catch (error) {
-      console.error('❌ Status chart error:', error);
+      console.error('❌ Weather chart error:', error);
       doc.setFontSize(10);
       doc.text('Error: ' + error.message, 20, 30);
     }
   }
 
   // ===========================================
-  // PAGE 3: MONTHLY TREND BAR CHART (LANDSCAPE)
+  // PAGE 3: MANPOWER BAR CHART (LANDSCAPE)
   // ===========================================
-  if (includeMonthlyChart && data.monthlyTrend && data.monthlyTrend.length > 0) {
-    console.log('Adding monthly trend chart...');
+  const manpowerData = Object.entries(data.manpowerSummary || {}).map(([category, info]) => ({
+    month: category,  // Using 'month' field for X-axis compatibility
+    value: parseFloat(info.avgWorkers || 0),
+    count: info.totalWorkers || 0
+  }));
+  
+  if (includeManpowerChart && manpowerData.length > 0) {
+    console.log('Adding manpower chart...');
     
     // NEW PAGE - LANDSCAPE for chart
     doc.addPage('a4', 'landscape');
     
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
-    doc.text('MONTHLY CLAIMS TREND', 14, 20);
+    doc.text('MANPOWER BY TRADE', 14, 20);
 
     try {
-      // Format data for chart
-      const monthlyData = data.monthlyTrend.map(item => ({
-        month: item.month,
-        value: item.amount || item.count || 0
-      }));
-
-      const chartImage = await generateMonthlyProgressChart(monthlyData);
+      const chartImage = await generateMonthlyProgressChart(manpowerData);
       
       if (chartImage) {
         const landscapeWidth = doc.internal.pageSize.getWidth();
@@ -180,28 +166,28 @@ export const buildClaimsPdf = async ({ data, settings, contract }) => {
         const chartHeight = (chartWidth / 700) * 400;
         
         doc.addImage(chartImage, 'PNG', 20, 30, chartWidth, chartHeight);
-        console.log('✅ Monthly trend chart added (landscape page)');
+        console.log('✅ Manpower chart added (landscape page)');
       } else {
-        console.warn('⚠️ Monthly chart generation returned null');
+        console.warn('⚠️ Manpower chart generation returned null');
         doc.setFontSize(10);
         doc.text('Chart could not be generated', 20, 30);
       }
     } catch (error) {
-      console.error('❌ Monthly chart error:', error);
+      console.error('❌ Manpower chart error:', error);
       doc.setFontSize(10);
       doc.text('Error: ' + error.message, 20, 30);
     }
   }
 
   // ===========================================
-  // PAGE 4: CLAIMS LIST TABLE (PORTRAIT)
+  // PAGE 4: ALL DIARIES TABLE (PORTRAIT)
   // ===========================================
-  const claimsList = data.allClaims || [];
+  const diaries = data.diaries || [];
   
-  console.log('Claims list length:', claimsList.length);
+  console.log('Diaries list length:', diaries.length);
 
-  if (includeClaimsList && claimsList.length > 0) {
-    console.log('Adding claims list...');
+  if (includeDiariesList && diaries.length > 0) {
+    console.log('Adding diaries list...');
     
     // NEW PAGE - PORTRAIT for table
     doc.addPage('a4', 'portrait');
@@ -209,28 +195,28 @@ export const buildClaimsPdf = async ({ data, settings, contract }) => {
 
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
-    doc.text('CLAIMS LIST', 14, cursorY);
+    doc.text('ALL DIARIES', 14, cursorY);
     cursorY += 8;
 
-    // Create detailed claims table
+    // Create diaries table
     autoTable(doc, {
       startY: cursorY,
       theme: 'striped',
       head: [[
-        'No.',
-        'Title',
-        'Period',
-        'Submitted',
-        'Amount',
+        'Date',
+        'Weather',
+        'Temp.',
+        'Manpower',
+        'Photos',
         'Status'
       ]],
-      body: claimsList.map(claim => [
-        claim.claim_number || '-',
-        claim.claim_title || '-',
-        `${formatDateMY(claim.claim_period_from)} - ${formatDateMY(claim.claim_period_to)}`,
-        formatDateMY(claim.submission_date),
-        formatCurrencyMY(claim.claim_amount || 0),
-        (claim.status || 'draft').toUpperCase()
+      body: diaries.map(diary => [
+        formatDateMY(diary.diary_date),
+        diary.weather || '-',
+        diary.temperature ? `${diary.temperature}°C` : '-',
+        diary.total_manpower || 0,
+        diary.photo_count || 0,
+        (diary.status || 'draft').toUpperCase()
       ]),
       styles: { fontSize: 9, cellPadding: 3 },
       headStyles: { 
@@ -239,18 +225,18 @@ export const buildClaimsPdf = async ({ data, settings, contract }) => {
         fontStyle: 'bold'
       },
       columnStyles: {
-        0: { cellWidth: 15, halign: 'center' },
-        1: { cellWidth: 65 },
-        2: { cellWidth: 40 },
-        3: { cellWidth: 25 },
-        4: { cellWidth: 30, halign: 'right' },
-        5: { cellWidth: 20, halign: 'center' }
+        0: { cellWidth: 30 },
+        1: { cellWidth: 30 },
+        2: { cellWidth: 20, halign: 'center' },
+        3: { cellWidth: 25, halign: 'right' },
+        4: { cellWidth: 20, halign: 'right' },
+        5: { cellWidth: 30, halign: 'center' }
       },
       alternateRowStyles: { fillColor: [250, 250, 250] },
       margin: { left: 14, right: 14 }
     });
 
-    console.log('✅ Claims list added');
+    console.log('✅ Diaries list added');
   }
 
   // ===========================================
@@ -280,7 +266,7 @@ export const buildClaimsPdf = async ({ data, settings, contract }) => {
   }
 
   const finalPageCount = doc.internal.getNumberOfPages();
-  console.log('✅ CLAIMS PDF generation complete');
+  console.log('✅ DIARY PDF generation complete');
   console.log(`📄 Total pages: ${finalPageCount}`);
   console.log('==========================================');
 

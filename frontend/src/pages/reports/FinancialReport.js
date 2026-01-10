@@ -1,20 +1,20 @@
-// frontend/src/pages/reports/FinancialReport.js
-// With internal date filter
+// frontend/src/pages/reports/FinancialReport.js  
+// CONSISTENT FORMAT - Matching BOQ structure with comprehensive sections
+
 import React, { useState, useEffect } from 'react';
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import jsPDF from 'jspdf';
-import autoTable from "jspdf-autotable";
-import { Chart } from 'chart.js/auto';
-
-import * as XLSX from 'xlsx';
 import { format, subMonths } from 'date-fns';
-import { getFinancialReportData } from '../../services/reportService';
-import DateRangeFilter from '../../components/reports/DateRangeFilter';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
-const FinancialReport = ({ contractId }) => {
+import { getFinancialReportData } from '../../services/reportService';
+import UniversalExportModal from '../../components/reports/UniversalExportModal';
+
+const FinancialReport = ({ contractId, contract }) => {
   const [reportData, setReportData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [showExport, setShowExport] = useState(false);
   const [startDate, setStartDate] = useState(format(subMonths(new Date(), 1), 'yyyy-MM-dd'));
   const [endDate, setEndDate] = useState(format(new Date(), 'yyyy-MM-dd'));
 
@@ -23,14 +23,12 @@ const FinancialReport = ({ contractId }) => {
   }, [contractId, startDate, endDate]);
 
   const loadReportData = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      setError(null);
       const data = await getFinancialReportData(contractId, startDate, endDate);
       setReportData(data);
-    } catch (err) {
-      console.error('Error loading financial report:', err);
-      // Don't set error - let component show empty state instead
+    } catch (error) {
+      console.error('Error loading financial report:', error);
       setReportData({
         statistics: {
           totalClaims: 0,
@@ -47,225 +45,95 @@ const FinancialReport = ({ contractId }) => {
     } finally {
       setLoading(false);
     }
-
-    console.log('FINANCIAL REPORT DATA:', reportData);
-
   };
 
   const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('ms-MY', {
-      style: 'currency',
-      currency: 'MYR',
-      minimumFractionDigits: 2
-    }).format(amount || 0);
+    if (amount === null || amount === undefined) return 'RM 0.00';
+    return `RM ${Number(amount).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-MY', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    });
+    if (!dateString) return '-';
+    return format(new Date(dateString), 'dd/MM/yyyy');
   };
 
-  const addHeaderFooter = (doc, subtitle = '') => {
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const pageNumber = doc.internal.getNumberOfPages();
-
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'bold');
-    doc.text('USAHA KITA BINA SDN. BHD.', 14, 12);
-
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`Financial Report FY ${new Date().getFullYear()}`, 14, 18);
-
-    if (subtitle) {
-      doc.text(subtitle, pageWidth - 14, 18, { align: 'right' });
-    }
-
-    doc.setDrawColor(200);
-    doc.line(14, pageHeight - 18, pageWidth - 14, pageHeight - 18);
-
-    doc.setFontSize(8);
-    doc.text(`Generated on ${formatDate(new Date().toISOString())}`, 14, pageHeight - 10);
-    doc.text(`Page ${pageNumber}`, pageWidth - 14, pageHeight - 10, { align: 'right' });
-  };
-
-  const generateCumulativeLinePNG = async (data) => {
-    const canvas = document.createElement('canvas');
-    canvas.width = 1200;
-    canvas.height = 600;
-
-    new Chart(canvas, {
-      type: 'line',
-      data: {
-        labels: data.map(d => d.claimNumber),
-        datasets: [
-          {
-            label: 'Cumulative Amount (RM)',
-            data: data.map(d => d.amount),
-            borderColor: '#3b82f6',
-            backgroundColor: '#3b82f6',
-            tension: 0.3
-          }
-        ]
-      },
-      options: {
-        responsive: false,
-        animation: false,
-        scales: {
-          y: {
-            ticks: {
-              callback: v => `RM ${v.toLocaleString()}`
-            }
-          }
-        }
-      }
-    });
-
-    await new Promise(r => requestAnimationFrame(r));
-    return canvas.toDataURL('image/png');
-  };
-
-  const generateMonthlyBarPNG = async (data) => {
-    const canvas = document.createElement('canvas');
-    canvas.width = 1200;
-    canvas.height = 600;
-
-    new Chart(canvas, {
-      type: 'bar',
-      data: {
-        labels: data.map(d => d.month),
-        datasets: [
-          {
-            label: 'Claim Amount (RM)',
-            data: data.map(d => d.amount),
-            backgroundColor: '#3b82f6'
-          }
-        ]
-      },
-      options: {
-        responsive: false,
-        animation: false,
-        scales: {
-          y: {
-            beginAtZero: true,
-            ticks: {
-              callback: v => `RM ${v.toLocaleString()}`
-            }
-          }
-        }
-      }
-    });
-
-    await new Promise(r => requestAnimationFrame(r));
-    return canvas.toDataURL('image/png');
-  };
-
-
-  const exportToPDF = async () => {
+  // ============================================
+  // EXPORT TO PDF (Old Style - Direct)
+  // ============================================
+  const exportToPDF = () => {
     const doc = new jsPDF('p', 'mm', 'a4');
-    addHeaderFooter(doc, 'Summary');
-
-    doc.setFontSize(16);
-    doc.text('Financial Report', 14, 30);
-
-    doc.setFontSize(10);
-    doc.text(`Period: ${formatDate(startDate)} - ${formatDate(endDate)}`, 14, 38);
-
     const stats = reportData?.statistics || {};
 
+    // Header
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text('FINANCIAL REPORT', 14, 20);
+    
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Period: ${formatDate(startDate)} - ${formatDate(endDate)}`, 14, 28);
+    doc.text(`Generated: ${formatDate(new Date())}`, 14, 34);
+
+    // Summary Table
     autoTable(doc, {
-      startY: 45,
+      startY: 42,
       head: [['Metric', 'Value']],
       body: [
         ['Total Claims', stats.totalClaims || 0],
-        ['Total Claim Amount', formatCurrency(stats.totalClaimAmount)],
+        ['Total Claimed', formatCurrency(stats.totalClaimAmount)],
         ['Total Paid', formatCurrency(stats.totalPaid)],
-        ['Total Retention', formatCurrency(stats.totalRetention)],
+        ['Retention Held', formatCurrency(stats.totalRetention)],
         ['Contract Value', formatCurrency(stats.contractValue)],
-        ['Progress %', `${stats.progressPercentage || 0}%`]
+        ['Progress', `${stats.progressPercentage || 0}%`]
       ],
       theme: 'grid',
       headStyles: { fillColor: [59, 130, 246] },
       columnStyles: {
-        1: { halign: 'right' } // 👈 VALUE COLUMN
+        1: { halign: 'right' }
       }
     });
 
-
+    // Payment Timeline
     if (reportData?.paymentTimeline?.length > 0) {
       doc.addPage();
-      addHeaderFooter(doc, 'Payment Timeline');
+      
+      doc.setFontSize(14);
+      doc.text('Payment Timeline', 14, 20);
 
       autoTable(doc, {
-        startY: 45,
-        head: [['Metric', 'Value']],
-        body: [
-          ['Total Claims', stats.totalClaims || 0],
-          ['Total Claim Amount', formatCurrency(stats.totalClaimAmount)],
-          ['Total Paid', formatCurrency(stats.totalPaid)],
-          ['Total Retention', formatCurrency(stats.totalRetention)],
-          ['Contract Value', formatCurrency(stats.contractValue)],
-          ['Progress %', `${stats.progressPercentage || 0}%`]
-        ],
-        theme: 'grid',
+        startY: 28,
+        head: [['Claim No.', 'Date', 'Amount', 'Certified', 'Retention', 'Status']],
+        body: reportData.paymentTimeline.map(p => [
+          p.claimNumber,
+          formatDate(p.claimDate),
+          formatCurrency(p.amount),
+          formatCurrency(p.certified),
+          formatCurrency(p.retention),
+          p.status
+        ]),
+        theme: 'striped',
         headStyles: { fillColor: [59, 130, 246] },
         columnStyles: {
-          1: { halign: 'right' } // 👈 VALUE COLUMN
+          2: { halign: 'right' },
+          3: { halign: 'right' },
+          4: { halign: 'right' }
         }
       });
     }
 
-    // =========================
-    // CUMULATIVE CHART (LANDSCAPE)
-    // =========================
-    if (reportData?.cumulativeData?.length > 0) {
-      const img = await generateCumulativeLinePNG(
-        reportData.cumulativeData
-      );
-
-      doc.addPage('a4', 'landscape');
-      addHeaderFooter(doc, 'Cumulative Claims');
-
-      doc.setFontSize(14);
-      doc.text('Cumulative Claim Amount', 14, 30);
-
-      doc.addImage(img, 'PNG', 14, 40, 260, 120);
-    }
-
-    // =========================
-    // MONTHLY CHART (LANDSCAPE)
-    // =========================
-    if (reportData?.monthlyBreakdown?.length > 0) {
-      const img = await generateMonthlyBarPNG(
-        reportData.monthlyBreakdown
-      );
-
-      doc.addPage('a4', 'landscape');
-      addHeaderFooter(doc, 'Monthly Claims');
-
-      doc.setFontSize(14);
-      doc.text('Monthly Claims Breakdown', 14, 30);
-
-      doc.addImage(img, 'PNG', 14, 40, 260, 120);
-    }
-
-
     doc.save(`Financial_Report_${new Date().toISOString().split('T')[0]}.pdf`);
   };
 
-
-
+  // ============================================
+  // EXPORT TO EXCEL
+  // ============================================
   const exportToExcel = () => {
     const stats = reportData?.statistics || {};
     
     const summaryData = [
       ['Financial Report'],
       ['Period:', `${formatDate(startDate)} - ${formatDate(endDate)}`],
-      ['Generated:', formatDate(new Date().toISOString())],
+      ['Generated:', formatDate(new Date())],
       [],
       ['Financial Summary'],
       ['Total Claims', stats.totalClaims || 0],
@@ -296,181 +164,266 @@ const FinancialReport = ({ contractId }) => {
     XLSX.writeFile(wb, `Financial_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
-  // Always render filter and conditional content together
   const hasNoData = !reportData?.statistics?.totalClaims || reportData.statistics.totalClaims === 0;
 
   return (
     <div className="space-y-6">
-      {/* Date Range Filter - Always visible */}
-      <DateRangeFilter
-        startDate={startDate}
-        endDate={endDate}
-        onStartDateChange={setStartDate}
-        onEndDateChange={setEndDate}
-      />
+      
+      {/* Date Filter */}
+      <div className="bg-white p-4 rounded-lg shadow flex items-center space-x-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+          <input
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-lg"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+          <input
+            type="date"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-lg"
+          />
+        </div>
+        <button
+          onClick={loadReportData}
+          disabled={loading}
+          className="mt-6 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+        >
+          {loading ? 'Loading...' : 'Apply'}
+        </button>
+      </div>
 
-      {/* Loading State */}
+      {/* Loading */}
       {loading && (
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="bg-white p-12 rounded-lg shadow text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent"></div>
+          <p className="mt-4 text-gray-600">Loading financial data...</p>
         </div>
       )}
 
-      {/* No Data State */}
+      {/* No Data */}
       {!loading && hasNoData && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-8 text-center">
-          <div className="text-blue-400 text-5xl mb-4">💰</div>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No Claims Data</h3>
-          <p className="text-gray-500">
-            No claims found for the selected date range. Create claims to see financial analysis.
-          </p>
+        <div className="bg-white p-12 rounded-lg shadow text-center">
+          <svg className="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">No Financial Data</h3>
+          <p className="text-gray-600">Create claims to see financial analysis.</p>
         </div>
       )}
 
-      {/* Main Content - Only when data exists */}
+      {/* Main Content */}
       {!loading && !hasNoData && (() => {
         const stats = reportData.statistics;
 
         return (
           <>
+            {/* Statistics Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="bg-white p-4 rounded-lg shadow border border-gray-200">
+                <div className="text-sm text-gray-500">Total Claims</div>
+                <div className="text-2xl font-bold text-gray-900">{stats.totalClaims}</div>
+              </div>
+              <div className="bg-blue-50 p-4 rounded-lg shadow border border-blue-200">
+                <div className="text-sm text-blue-600">Total Claimed</div>
+                <div className="text-xl font-bold text-blue-700">{formatCurrency(stats.totalClaimAmount)}</div>
+              </div>
+              <div className="bg-green-50 p-4 rounded-lg shadow border border-green-200">
+                <div className="text-sm text-green-600">Total Paid</div>
+                <div className="text-xl font-bold text-green-700">{formatCurrency(stats.totalPaid)}</div>
+              </div>
+              <div className="bg-yellow-50 p-4 rounded-lg shadow border border-yellow-200">
+                <div className="text-sm text-yellow-600">Retention Held</div>
+                <div className="text-xl font-bold text-yellow-700">{formatCurrency(stats.totalRetention)}</div>
+              </div>
+            </div>
 
-      {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-lg shadow border border-gray-200">
-          <div className="text-sm text-gray-500">Total Claims</div>
-          <div className="text-2xl font-bold text-gray-900">{stats.totalClaims}</div>
-        </div>
-        <div className="bg-blue-50 p-4 rounded-lg shadow border border-blue-200">
-          <div className="text-sm text-blue-600">Total Claimed</div>
-          <div className="text-xl font-bold text-blue-700">{formatCurrency(stats.totalClaimAmount)}</div>
-        </div>
-        <div className="bg-green-50 p-4 rounded-lg shadow border border-green-200">
-          <div className="text-sm text-green-600">Total Paid</div>
-          <div className="text-xl font-bold text-green-700">{formatCurrency(stats.totalPaid)}</div>
-        </div>
-        <div className="bg-yellow-50 p-4 rounded-lg shadow border border-yellow-200">
-          <div className="text-sm text-yellow-600">Retention Held</div>
-          <div className="text-xl font-bold text-yellow-700">{formatCurrency(stats.totalRetention)}</div>
-        </div>
-      </div>
+            {/* Financial Overview Table */}
+            <div className="bg-white p-6 rounded-lg shadow">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Financial Overview</h3>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-blue-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Metric</th>
+                      <th className="px-6 py-3 text-right text-sm font-semibold text-gray-900">Value</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    <tr className="hover:bg-gray-50">
+                      <td className="px-6 py-4 text-sm font-medium text-gray-900">Total Claims</td>
+                      <td className="px-6 py-4 text-sm text-right font-semibold text-gray-900">{stats.totalClaims}</td>
+                    </tr>
+                    <tr className="hover:bg-gray-50">
+                      <td className="px-6 py-4 text-sm font-medium text-gray-900">Total Claimed Amount</td>
+                      <td className="px-6 py-4 text-sm text-right font-semibold text-blue-600">{formatCurrency(stats.totalClaimAmount)}</td>
+                    </tr>
+                    <tr className="hover:bg-gray-50">
+                      <td className="px-6 py-4 text-sm font-medium text-gray-900">Total Paid</td>
+                      <td className="px-6 py-4 text-sm text-right font-semibold text-green-600">{formatCurrency(stats.totalPaid)}</td>
+                    </tr>
+                    <tr className="hover:bg-gray-50">
+                      <td className="px-6 py-4 text-sm font-medium text-gray-900">Retention Held</td>
+                      <td className="px-6 py-4 text-sm text-right font-semibold text-yellow-600">{formatCurrency(stats.totalRetention)}</td>
+                    </tr>
+                    <tr className="bg-gray-50">
+                      <td className="px-6 py-4 text-sm font-bold text-gray-900">Contract Value</td>
+                      <td className="px-6 py-4 text-sm text-right font-bold text-gray-900">{formatCurrency(stats.contractValue)}</td>
+                    </tr>
+                    <tr className="bg-blue-50">
+                      <td className="px-6 py-4 text-sm font-bold text-blue-900">Progress Percentage</td>
+                      <td className="px-6 py-4 text-sm text-right font-bold text-blue-900">{stats.progressPercentage}%</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
 
-      {/* Progress Indicator */}
-      <div className="bg-white p-6 rounded-lg shadow">
-        <div className="flex justify-between items-center mb-2">
-          <h3 className="text-lg font-semibold text-gray-900">Contract Progress</h3>
-          <span className="text-2xl font-bold text-blue-600">{stats.progressPercentage}%</span>
-        </div>
-        <div className="w-full bg-gray-200 rounded-full h-4">
-          <div
-            className="bg-blue-600 h-4 rounded-full transition-all duration-300"
-            style={{ width: `${Math.min(stats.progressPercentage, 100)}%` }}
-          ></div>
-        </div>
-        <div className="flex justify-between mt-2 text-sm text-gray-600">
-          <span>Contract Value: {formatCurrency(stats.contractValue)}</span>
-          <span>Claimed: {formatCurrency(stats.totalClaimAmount)}</span>
-        </div>
-      </div>
+            {/* Progress Bar */}
+            <div className="bg-white p-6 rounded-lg shadow">
+              <div className="flex justify-between items-center mb-2">
+                <h3 className="text-lg font-semibold text-gray-900">Contract Progress</h3>
+                <span className="text-2xl font-bold text-blue-600">{stats.progressPercentage}%</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-8">
+                <div
+                  className="bg-gradient-to-r from-blue-500 to-blue-600 h-8 rounded-full flex items-center justify-center text-white text-sm font-semibold"
+                  style={{ width: `${stats.progressPercentage}%` }}
+                >
+                  {stats.progressPercentage > 10 && `${stats.progressPercentage}%`}
+                </div>
+              </div>
+              <div className="flex justify-between mt-2 text-sm text-gray-600">
+                <span>Start</span>
+                <span>{formatCurrency(stats.totalPaid)} / {formatCurrency(stats.contractValue)}</span>
+                <span>Complete</span>
+              </div>
+            </div>
 
-      {/* Cumulative Progress Chart */}
-      {reportData.cumulativeData && reportData.cumulativeData.length > 0 && (
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Cumulative Claim Amount</h3>
-          <div id="cumulative-chart">
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={reportData.cumulativeData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="claimNumber" />
-                <YAxis />
-                <Tooltip formatter={(value) => formatCurrency(value)} />
-                <Legend />
-                <Line type="monotone" dataKey="amount" stroke="#3b82f6" strokeWidth={2} name="Cumulative Amount" />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      )}
+            {/* Cumulative Chart */}
+            {reportData.cumulativeData && reportData.cumulativeData.length > 0 && (
+              <div className="bg-white p-6 rounded-lg shadow">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Cumulative Claim Amount</h3>
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={reportData.cumulativeData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Line type="monotone" dataKey="cumulative" stroke="#3b82f6" strokeWidth={2} name="Cumulative (RM)" />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            )}
 
-      {/* Monthly Breakdown Chart */}
-      {reportData.monthlyBreakdown && reportData.monthlyBreakdown.length > 0 && (
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Monthly Claims</h3>
-          <div id="monthly-chart">
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={reportData.monthlyBreakdown}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis />
-                <Tooltip formatter={(value) => formatCurrency(value)} />
-                <Legend />
-                <Bar dataKey="amount" fill="#3b82f6" name="Claim Amount" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      )}
+            {/* Monthly Breakdown Chart */}
+            {reportData.monthlyBreakdown && reportData.monthlyBreakdown.length > 0 && (
+              <div className="bg-white p-6 rounded-lg shadow">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Monthly Claims Breakdown</h3>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={reportData.monthlyBreakdown}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="month" />
+                    <YAxis yAxisId="left" />
+                    <YAxis yAxisId="right" orientation="right" />
+                    <Tooltip />
+                    <Legend />
+                    <Bar yAxisId="left" dataKey="count" fill="#3b82f6" name="Number of Claims" />
+                    <Bar yAxisId="right" dataKey="amount" fill="#10b981" name="Amount (RM)" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
 
-      {/* Payment Timeline Table */}
-      {reportData.paymentTimeline && reportData.paymentTimeline.length > 0 && (
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Payment Timeline</h3>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Claim No.</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Amount</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Certified</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Retention</th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {reportData.paymentTimeline.map((payment, index) => (
-                  <tr key={index} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm font-medium text-gray-900">{payment.claimNumber}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{formatDate(payment.claimDate)}</td>
-                    <td className="px-4 py-3 text-sm text-right font-medium text-gray-900">{formatCurrency(payment.amount)}</td>
-                    <td className="px-4 py-3 text-sm text-right text-green-600">{formatCurrency(payment.certified)}</td>
-                    <td className="px-4 py-3 text-sm text-right text-yellow-600">{formatCurrency(payment.retention)}</td>
-                    <td className="px-4 py-3 text-sm text-center">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        payment.status === 'paid' ? 'bg-green-100 text-green-800' :
-                        payment.status === 'certified' ? 'bg-blue-100 text-blue-800' :
-                        payment.status === 'approved' ? 'bg-purple-100 text-purple-800' :
-                        payment.status === 'submitted' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-gray-100 text-gray-800'
-                      }`}>
-                        {payment.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+            {/* Payment Timeline Table */}
+            {reportData.paymentTimeline && reportData.paymentTimeline.length > 0 && (
+              <div className="bg-white p-6 rounded-lg shadow">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Payment Timeline</h3>
+                  <span className="text-sm text-gray-500">{reportData.paymentTimeline.length} claims</span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Claim No.</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Amount</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Certified</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Retention</th>
+                        <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {reportData.paymentTimeline.map((payment, index) => (
+                        <tr key={index} className="hover:bg-gray-50">
+                          <td className="px-4 py-3 text-sm font-medium text-gray-900">{payment.claimNumber}</td>
+                          <td className="px-4 py-3 text-sm text-gray-600">{formatDate(payment.claimDate)}</td>
+                          <td className="px-4 py-3 text-sm text-right font-medium text-gray-900">{formatCurrency(payment.amount)}</td>
+                          <td className="px-4 py-3 text-sm text-right text-green-600">{formatCurrency(payment.certified)}</td>
+                          <td className="px-4 py-3 text-sm text-right text-yellow-600">{formatCurrency(payment.retention)}</td>
+                          <td className="px-4 py-3 text-sm text-center">
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                              payment.status === 'paid' ? 'bg-green-100 text-green-800' :
+                              payment.status === 'certified' ? 'bg-blue-100 text-blue-800' :
+                              payment.status === 'approved' ? 'bg-purple-100 text-purple-800' :
+                              payment.status === 'submitted' ? 'bg-yellow-100 text-yellow-800' :
+                              'bg-gray-100 text-gray-800'
+                            }`}>
+                              {payment.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
 
-      {/* Export Buttons */}
-      <div className="flex gap-3">
-        <button
-          onClick={exportToPDF}
-          className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
-        >
-          📄 Export PDF
-        </button>
-        <button
-          onClick={exportToExcel}
-          className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
-        >
-          📊 Export Excel
-        </button>
-      </div>
+            {/* Export Buttons - BOQ STYLE */}
+            <div className="flex gap-3">
+              <button
+                onClick={exportToPDF}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+              >
+                📄 Export PDF
+              </button>
+
+              <button
+                onClick={exportToExcel}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+              >
+                📊 Export Excel
+              </button>
+
+              <button
+                onClick={() => setShowExport(true)}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+              >
+                🎨 Export PDF (Advanced)
+              </button>
+            </div>
           </>
         );
       })()}
+
+      {/* Universal Export Modal (Advanced Option) */}
+      {showExport && reportData && (
+        <UniversalExportModal
+          open={showExport}
+          onClose={() => setShowExport(false)}
+          reportType="financial"
+          reportData={reportData}
+          contract={contract}
+        />
+      )}
     </div>
   );
 };

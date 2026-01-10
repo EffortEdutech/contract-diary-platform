@@ -7,17 +7,19 @@ import autoTable from "jspdf-autotable";
 import { Chart } from 'chart.js/auto';
 import * as XLSX from 'xlsx';
 import { getBOQProgressReportData } from '../../services/reportService';
-import ExportBOQModal from '../../components/reports/ExportBOQModal';
-import ExportReportModal from '../../components/reports/ExportReportModal';
+import UniversalExportModal from '../../components/reports/UniversalExportModal';
+import { supabase } from '../../lib/supabase';
 
 const BOQProgressReport = ({ contractId }) => {
   const [reportData, setReportData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showExport, setShowExport] = useState(false);
+  const [contract, setContract] = useState(null);
 
   useEffect(() => {
     loadReportData();
+    loadContract();  
   }, [contractId]);
 
   const loadReportData = async () => {
@@ -105,6 +107,20 @@ const BOQProgressReport = ({ contractId }) => {
     return canvas.toDataURL('image/png');
   };
 
+  const loadContract = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('contracts')
+        .select('*')
+        .eq('id', contractId)
+        .single();
+
+      if (error) throw error;
+      setContract(data);
+    } catch (err) {
+      console.error('Error loading contract:', err);
+    }
+  };
 
   const exportToPDF = async () => {
     const doc = new jsPDF('p', 'mm', 'a4');
@@ -417,6 +433,7 @@ const BOQProgressReport = ({ contractId }) => {
         </div>
       )}
 
+
       {/* Export Buttons */}
       <div className="flex gap-3">
         <button
@@ -427,14 +444,15 @@ const BOQProgressReport = ({ contractId }) => {
         </button>
 
         {showExport && reportData && (
-          <ExportReportModal
+          <UniversalExportModal
             open={showExport}
             onClose={() => setShowExport(false)}
             reportType="boq"
             reportData={reportData}
-            contract={null}   // until contract object exists
+            contract={contract || null}
           />
         )}
+
 
 
 
@@ -446,7 +464,7 @@ const BOQProgressReport = ({ contractId }) => {
         </button>
 
         {showExport && (
-          <ExportBOQModal
+          <UniversalExportModal
             data={reportData}
             onClose={() => setShowExport(false)}
           />

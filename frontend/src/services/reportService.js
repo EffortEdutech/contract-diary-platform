@@ -1,5 +1,6 @@
 // frontend/src/services/reportService.js
-// WORKING VERSION - Simplified queries with null safety
+// COMPLETE REFACTORED VERSION - With Chart Metadata
+
 import { supabase } from '../lib/supabase';
 
 // ===========================================
@@ -7,20 +8,19 @@ import { supabase } from '../lib/supabase';
 // ===========================================
 export const getProgressReportData = async (contractId, startDate, endDate) => {
   try {
-    const { data: diaries, error: diariesError } = await supabase
+    const { data: diaries, error } = await supabase
       .from('work_diaries')
       .select('*')
       .eq('contract_id', contractId)
       .gte('diary_date', startDate)
       .lte('diary_date', endDate)
-      .order('diary_date', { ascending: true });
+      .order('diary_date', { ascending: false });
 
-    if (diariesError) throw diariesError;
+    if (error) throw error;
 
     const totalDiaries = diaries?.length || 0;
     const submittedDiaries = diaries?.filter(d => d.status === 'submitted' || d.status === 'acknowledged').length || 0;
     const acknowledgedDiaries = diaries?.filter(d => d.status === 'acknowledged').length || 0;
-    const draftDiaries = diaries?.filter(d => d.status === 'draft').length || 0;
 
     const weatherCounts = {};
     diaries?.forEach(diary => {
@@ -28,34 +28,39 @@ export const getProgressReportData = async (contractId, startDate, endDate) => {
       weatherCounts[weather] = (weatherCounts[weather] || 0) + 1;
     });
 
-    const weatherData = Object.entries(weatherCounts).map(([name, value]) => ({
-      name,
-      value
+    const weatherData = Object.entries(weatherCounts).map(([name, value]) => ({ name, value }));
+
+    const statusCounts = {
+      draft: diaries?.filter(d => d.status === 'draft').length || 0,
+      submitted: diaries?.filter(d => d.status === 'submitted').length || 0,
+      acknowledged: diaries?.filter(d => d.status === 'acknowledged').length || 0
+    };
+
+    const statusData = Object.entries(statusCounts)
+      .filter(([_, value]) => value > 0)
+      .map(([name, value]) => ({
+        name: name.charAt(0).toUpperCase() + name.slice(1),
+        value
+      }));
+
+    const manpowerData = {};
+    diaries?.forEach(diary => {
+      const date = diary.diary_date;
+      manpowerData[date] = diary.total_manpower || 0;
+    });
+
+    const manpowerTrend = Object.entries(manpowerData).map(([date, count]) => ({
+      date,
+      count
     }));
 
-    const statusData = [
-      { name: 'Draft', value: draftDiaries },
-      { name: 'Submitted', value: submittedDiaries - acknowledgedDiaries },
-      { name: 'Acknowledged', value: acknowledgedDiaries }
-    ].filter(item => item.value > 0);
-
-    const manpowerTrend = diaries?.map(diary => {
-      const manpower = Array.isArray(diary.manpower) ? diary.manpower : [];
-      const totalWorkers = manpower.reduce((sum, m) => sum + (parseInt(m.count) || 0), 0);
-      return {
-        date: diary.diary_date,
-        workers: totalWorkers
-      };
-    }) || [];
-
-    const recentDiaries = diaries?.slice(-10).reverse() || [];
+    const recentDiaries = diaries?.slice(0, 10) || [];
 
     return {
       statistics: {
         totalDiaries,
         submittedDiaries,
         acknowledgedDiaries,
-        draftDiaries,
         completionRate: totalDiaries > 0 ? ((submittedDiaries / totalDiaries) * 100).toFixed(1) : 0
       },
       weatherData,
@@ -100,8 +105,8 @@ export const getFinancialReportData = async (contractId, startDate, endDate) => 
     const cumulativeData = claims?.map(claim => {
       cumulative += parseFloat(claim.claim_amount) || 0;
       return {
-        claimNumber: claim.claim_number,
-        amount: cumulative
+        date: claim.submission_date,
+        cumulative: cumulative
       };
     }) || [];
 
@@ -137,7 +142,42 @@ export const getFinancialReportData = async (contractId, startDate, endDate) => 
       },
       cumulativeData,
       monthlyBreakdown,
-      paymentTimeline
+      paymentTimeline,
+      
+      // ✅ CHART METADATA
+      chartMetadata: {
+        cumulativeChart: {
+          title: 'Cumulative Claim Amount',
+          type: 'line',
+          xAxisKey: 'date',
+          datasets: [
+            {
+              key: 'cumulative',
+              label: 'Cumulative Amount (RM)',
+              color: '#3b82f6'
+            }
+          ]
+        },
+        monthlyBreakdown: {
+          title: 'Monthly Claims Breakdown',
+          type: 'dualBar',
+          xAxisKey: 'month',
+          datasets: [
+            {
+              key: 'count',
+              label: 'Number of Claims',
+              color: '#3b82f6',
+              yAxis: 'left'
+            },
+            {
+              key: 'amount',
+              label: 'Total Amount (RM)',
+              color: '#10b981',
+              yAxis: 'right'
+            }
+          ]
+        }
+      }
     };
   } catch (error) {
     console.error('Error fetching financial report data:', error);
@@ -150,6 +190,11 @@ export const getFinancialReportData = async (contractId, startDate, endDate) => 
 // ===========================================
 export const getDiaryReportData = async (contractId, startDate, endDate) => {
   try {
+    console.log('=== getDiaryReportData called ===');
+    console.log('contractId:', contractId);
+    console.log('startDate:', startDate);
+    console.log('endDate:', endDate);
+
     const { data: diaries, error } = await supabase
       .from('work_diaries')
       .select('*')
@@ -158,46 +203,123 @@ export const getDiaryReportData = async (contractId, startDate, endDate) => {
       .lte('diary_date', endDate)
       .order('diary_date', { ascending: false });
 
-    if (error) throw error;
+    if (error) {
+      console.error('Database error:', error);
+      throw error;
+    }
 
+    console.log('Diaries fetched:', diaries?.length || 0);
+
+    // Weather distribution count
     const weatherCounts = {};
     diaries?.forEach(diary => {
       const weather = diary.weather_conditions || 'Unknown';
       weatherCounts[weather] = (weatherCounts[weather] || 0) + 1;
     });
 
-    const weatherSummary = Object.entries(weatherCounts).map(([name, value]) => ({
-      name,
-      value
-    }));
+    console.log('Weather counts:', weatherCounts);
 
+    // Manpower by trade
     const manpowerByTrade = {};
     diaries?.forEach(diary => {
       const manpower = Array.isArray(diary.manpower) ? diary.manpower : [];
       manpower.forEach(m => {
         const trade = m.trade || 'General';
         if (!manpowerByTrade[trade]) {
-          manpowerByTrade[trade] = { trade, totalWorkers: 0, days: 0 };
+          manpowerByTrade[trade] = { totalWorkers: 0, days: 0 };
         }
         manpowerByTrade[trade].totalWorkers += parseInt(m.count) || 0;
         manpowerByTrade[trade].days += 1;
       });
     });
 
-    const manpowerSummary = Object.values(manpowerByTrade).map(m => ({
-      ...m,
-      avgPerDay: m.days > 0 ? (m.totalWorkers / m.days).toFixed(1) : 0
+    // Calculate averages for manpower
+    Object.keys(manpowerByTrade).forEach(trade => {
+      const data = manpowerByTrade[trade];
+      manpowerByTrade[trade].avgWorkers = data.days > 0 
+        ? (data.totalWorkers / data.days).toFixed(1) 
+        : '0.0';
+    });
+
+    console.log('Manpower by trade:', manpowerByTrade);
+
+    // Issues and delays
+    const issuesDiaries = diaries?.filter(d => 
+      d.issues_delays && d.issues_delays.trim() !== ''
+    ) || [];
+
+    const issuesDelays = issuesDiaries.map(d => ({
+      date: d.diary_date,
+      description: d.issues_delays
     }));
 
-    const issuesDiaries = diaries?.filter(d => d.issues_delays && d.issues_delays.trim() !== '') || [];
+    console.log('Issues found:', issuesDelays.length);
 
-    return {
-      totalDiaries: diaries?.length || 0,
-      weatherSummary,
-      manpowerSummary,
-      issuesDiaries,
-      allDiaries: diaries || []
+    // Count total photos
+    const totalPhotos = diaries?.reduce((sum, d) => {
+      const photoCount = d.photo_count || 
+        (Array.isArray(d.photos_uploaded) ? d.photos_uploaded.length : 0);
+      return sum + photoCount;
+    }, 0) || 0;
+
+    console.log('Total photos:', totalPhotos);
+
+    const result = {
+      statistics: {
+        totalDiaries: diaries?.length || 0,
+        totalPhotos: totalPhotos,
+        issuesCount: issuesDelays.length,
+        weatherDistribution: weatherCounts
+      },
+      manpowerSummary: manpowerByTrade,
+      issuesDelays: issuesDelays,
+      diaries: diaries || [],
+      
+      // ✅ CHART METADATA
+      chartMetadata: {
+        weatherChart: {
+          title: 'Weather Distribution',
+          type: 'pie',
+          dataKey: 'value',
+          labelKey: 'name',
+          colors: {
+            'Sunny': '#fcd34d',
+            'Cloudy': '#9ca3af',
+            'Rainy': '#3b82f6',
+            'Heavy Rain': '#1e40af'
+          }
+        },
+        manpowerChart: {
+          title: 'Manpower by Trade',
+          type: 'bar',
+          xAxisKey: 'category',
+          datasets: [
+            {
+              key: 'avgWorkers',
+              label: 'Average Workers',
+              color: '#3b82f6',
+              yAxisLabel: 'Number of Workers'
+            },
+            {
+              key: 'totalWorkers',
+              label: 'Total Workers',
+              color: '#10b981',
+              yAxisLabel: 'Total Count'
+            }
+          ]
+        }
+      }
     };
+
+    console.log('=== Result structure ===');
+    console.log('statistics.totalDiaries:', result.statistics.totalDiaries);
+    console.log('statistics.totalPhotos:', result.statistics.totalPhotos);
+    console.log('statistics.issuesCount:', result.statistics.issuesCount);
+    console.log('diaries.length:', result.diaries.length);
+    console.log('========================');
+
+    return result;
+
   } catch (error) {
     console.error('Error fetching diary report data:', error);
     throw error;
@@ -209,37 +331,19 @@ export const getDiaryReportData = async (contractId, startDate, endDate) => {
 // ===========================================
 export const getBOQProgressReportData = async (contractId) => {
   try {
-    const { data: boqs, error: boqError } = await supabase
-      .from('boq')
-      .select('id, boq_number, title, status, total_amount')
+    const { data: boq, error: boqError } = await supabase
+      .from('boq')  // ✅ FIXED - was 'boqs'
+      .select('*')
       .eq('contract_id', contractId)
-      .eq('status', 'approved');
+      .single();
 
     if (boqError) throw boqError;
-
-    if (!boqs || boqs.length === 0) {
-      return {
-        boq: null,
-        sections: [],
-        items: [],
-        statusData: [],
-        summary: {
-          total: 0,
-          completed: 0,
-          inProgress: 0,
-          notStarted: 0,
-          completionPercentage: 0
-        }
-      };
-    }
-
-    const boq = boqs[0];
 
     const { data: sections, error: sectionsError } = await supabase
       .from('boq_sections')
       .select('*')
       .eq('boq_id', boq.id)
-      .order('display_order');
+      .order('section_number', { ascending: true });
 
     if (sectionsError) throw sectionsError;
 
@@ -247,30 +351,24 @@ export const getBOQProgressReportData = async (contractId) => {
       .from('boq_items')
       .select('*')
       .eq('boq_id', boq.id)
-      .order('display_order');
+      .order('item_number', { ascending: true });
 
     if (itemsError) throw itemsError;
 
-    const sectionsWithProgress = sections?.map(section => {
-      const sectionItems = items?.filter(item => item.section_id === section.id) || [];
-      const totalItems = sectionItems.length;
-      const completedItems = sectionItems.filter(item => item.percentage_complete >= 100).length;
-      const avgProgress = totalItems > 0 
-        ? sectionItems.reduce((sum, item) => sum + (item.percentage_complete || 0), 0) / totalItems
-        : 0;
-
-      return {
-        ...section,
-        totalItems,
-        completedItems,
-        progress: avgProgress.toFixed(1)
-      };
-    }) || [];
-
     const totalItems = items?.length || 0;
-    const completedItems = items?.filter(item => item.percentage_complete >= 100).length || 0;
-    const inProgressItems = items?.filter(item => item.percentage_complete > 0 && item.percentage_complete < 100).length || 0;
-    const notStartedItems = items?.filter(item => (item.percentage_complete || 0) === 0).length || 0;
+    const completedItems = items?.filter(item => {
+      const qtyDone = parseFloat(item.quantity_done) || 0;
+      const qty = parseFloat(item.quantity) || 0;
+      return qty > 0 && qtyDone >= qty;
+    }).length || 0;
+
+    const inProgressItems = items?.filter(item => {
+      const qtyDone = parseFloat(item.quantity_done) || 0;
+      const qty = parseFloat(item.quantity) || 0;
+      return qtyDone > 0 && qtyDone < qty;
+    }).length || 0;
+
+    const notStartedItems = totalItems - completedItems - inProgressItems;
 
     const statusData = [
       { name: 'Completed', value: completedItems },
@@ -280,8 +378,8 @@ export const getBOQProgressReportData = async (contractId) => {
 
     return {
       boq,
-      sections: sectionsWithProgress,
-      items: items || [],
+      sections,
+      items,
       statusData,
       summary: {
         total: totalItems,
@@ -289,6 +387,21 @@ export const getBOQProgressReportData = async (contractId) => {
         inProgress: inProgressItems,
         notStarted: notStartedItems,
         completionPercentage: totalItems > 0 ? ((completedItems / totalItems) * 100).toFixed(1) : 0
+      },
+      
+      // ✅ CHART METADATA
+      chartMetadata: {
+        statusChart: {
+          title: 'Completion Status',
+          type: 'pie',
+          dataKey: 'value',
+          labelKey: 'name',
+          colors: {
+            'Completed': '#10b981',
+            'In Progress': '#f59e0b',
+            'Not Started': '#6b7280'
+          }
+        }
       }
     };
   } catch (error) {
@@ -304,6 +417,15 @@ export const getBOQProgressReportData = async (contractId) => {
         inProgress: 0,
         notStarted: 0,
         completionPercentage: 0
+      },
+      chartMetadata: {
+        statusChart: {
+          title: 'Completion Status',
+          type: 'pie',
+          dataKey: 'value',
+          labelKey: 'name',
+          colors: {}
+        }
       }
     };
   }
@@ -381,10 +503,134 @@ export const getClaimsSummaryReportData = async (contractId, startDate, endDate)
       monthlyTrend,
       processingTimes,
       avgProcessingTime,
-      allClaims: claims || []
+      allClaims: claims || [],
+      
+      // ✅ CHART METADATA
+      chartMetadata: {
+        statusChart: {
+          title: 'Claims by Status',
+          type: 'pie',
+          dataKey: 'value',
+          labelKey: 'name',
+          colors: {
+            'Draft': '#9ca3af',
+            'Submitted': '#fbbf24',
+            'Approved': '#8b5cf6',
+            'Certified': '#3b82f6',
+            'Paid': '#10b981'
+          }
+        },
+        monthlyTrend: {
+          title: 'Monthly Claims Trend',
+          type: 'dualBar',
+          xAxisKey: 'month',
+          datasets: [
+            {
+              key: 'count',
+              label: 'Number of Claims',
+              color: '#3b82f6',
+              yAxis: 'left'
+            },
+            {
+              key: 'amount',
+              label: 'Total Amount (RM)',
+              color: '#10b981',
+              yAxis: 'right'
+            }
+          ]
+        }
+      }
     };
   } catch (error) {
     console.error('Error fetching claims summary data:', error);
     throw error;
   }
+};
+
+// ===========================================
+// 6. STATISTICS OVERVIEW (Dashboard)
+// ===========================================
+export const getStatisticsOverviewData = async (contractId) => {
+  try {
+    const { data: contract, error: contractError } = await supabase
+      .from('contracts')
+      .select('*')
+      .eq('id', contractId)
+      .single();
+
+    if (contractError) throw contractError;
+
+    const { data: diaries } = await supabase
+      .from('work_diaries')
+      .select('*')
+      .eq('contract_id', contractId);
+
+    const { data: claims } = await supabase
+      .from('progress_claims')
+      .select('*')
+      .eq('contract_id', contractId);
+
+    const { data: boq } = await supabase
+      .from('boq')
+      .select('id')
+      .eq('contract_id', contractId)
+      .single();
+
+    let boqItems = [];
+    if (boq) {
+      const { data } = await supabase
+        .from('boq_items')
+        .select('*')
+        .eq('boq_id', boq.id);
+      boqItems = data || [];
+    }
+
+    const totalDiaries = diaries?.length || 0;
+    const submittedDiaries = diaries?.filter(d => d.status === 'submitted' || d.status === 'acknowledged').length || 0;
+    
+    const totalClaims = claims?.length || 0;
+    const approvedClaims = claims?.filter(c => c.status === 'approved' || c.status === 'certified' || c.status === 'paid').length || 0;
+    
+    const totalBOQItems = boqItems.length || 0;
+    const completedBOQItems = boqItems.filter(item => {
+      const qtyDone = parseFloat(item.quantity_done) || 0;
+      const qty = parseFloat(item.quantity) || 0;
+      return qty > 0 && qtyDone >= qty;
+    }).length || 0;
+
+    return {
+      contract,
+      statistics: {
+        diaries: {
+          total: totalDiaries,
+          submitted: submittedDiaries,
+          percentage: totalDiaries > 0 ? ((submittedDiaries / totalDiaries) * 100).toFixed(1) : 0
+        },
+        claims: {
+          total: totalClaims,
+          approved: approvedClaims,
+          percentage: totalClaims > 0 ? ((approvedClaims / totalClaims) * 100).toFixed(1) : 0
+        },
+        boq: {
+          total: totalBOQItems,
+          completed: completedBOQItems,
+          percentage: totalBOQItems > 0 ? ((completedBOQItems / totalBOQItems) * 100).toFixed(1) : 0
+        }
+      },
+      recentDiaries: diaries?.slice(0, 5) || [],
+      recentClaims: claims?.slice(0, 5) || []
+    };
+  } catch (error) {
+    console.error('Error fetching statistics overview:', error);
+    throw error;
+  }
+};
+
+export default {
+  getProgressReportData,
+  getFinancialReportData,
+  getDiaryReportData,
+  getBOQProgressReportData,
+  getClaimsSummaryReportData,
+  getStatisticsOverviewData
 };

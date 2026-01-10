@@ -1,5 +1,5 @@
-// frontend/src/lib/reports/claimsPdfBuilder.js
-// COMPLETE VERSION - With charts like BOQ
+// frontend/src/lib/reports/financialPdfBuilder.js
+// Financial Report PDF Builder with charts
 
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -10,18 +10,19 @@ import {
 } from '../../utils/reports/BaseReportExporter';
 
 import { 
-  generateStatusChartImage,
+  generateCumulativeChart,
   generateMonthlyProgressChart
 } from '../../utils/reports/chartGenerators';
 
 /**
- * Build Claims Summary Report PDF
- * COMPLETE: With summary, status chart, monthly trend chart, claims list
+ * Build Financial Report PDF
+ * Structure: Summary → Cumulative Chart → Monthly Chart → Payment Timeline
  */
-export const buildClaimsPdf = async ({ data, settings, contract }) => {
+export const buildFinancialPdf = async ({ data, settings, contract }) => {
   console.log('==========================================');
-  console.log('CLAIMS PDF BUILDER CALLED (WITH CHARTS)');
+  console.log('FINANCIAL PDF BUILDER CALLED');
   console.log('Data structure:', Object.keys(data));
+  console.log('Settings:', settings);
   console.log('==========================================');
 
   // Start with PORTRAIT
@@ -33,11 +34,11 @@ export const buildClaimsPdf = async ({ data, settings, contract }) => {
 
   const pageWidth = doc.internal.pageSize.getWidth();
 
-  // CLAIMS HEADER
+  // FINANCIAL HEADER
   doc.setFontSize(16);
   doc.setFont('helvetica', 'bold');
-  doc.text('CLAIMS SUMMARY REPORT', pageWidth / 2, 15, { align: 'center' });
-  console.log('✅ Added CLAIMS header');
+  doc.text('FINANCIAL REPORT', pageWidth / 2, 15, { align: 'center' });
+  console.log('✅ Added FINANCIAL header');
 
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
@@ -57,119 +58,108 @@ export const buildClaimsPdf = async ({ data, settings, contract }) => {
 
   // Content flags
   const includeSummary = settings.content?.includeSummary !== false;
-  const includeStatusChart = settings.content?.includeStatusChart !== false;
-  const includeMonthlyChart = settings.content?.includeSectionProgress !== false; // Using this for monthly chart
-  const includeClaimsList = true; // Always show claims list
+  const includeCumulativeChart = settings.content?.includeStatusChart !== false; // Using statusChart flag
+  const includeMonthlyChart = settings.content?.includeSectionProgress !== false; // Using sectionProgress flag
+  const includeTimeline = true; // Always show timeline
 
   console.log('Content flags:', {
     includeSummary,
-    includeStatusChart,
+    includeCumulativeChart,
     includeMonthlyChart,
-    includeClaimsList
+    includeTimeline
   });
 
+  const stats = data.statistics || {};
+
   // ===========================================
-  // PAGE 1: SUMMARY TABLE (PORTRAIT)
+  // PAGE 1: FINANCIAL SUMMARY (PORTRAIT)
   // ===========================================
   if (includeSummary) {
-    console.log('Adding summary section...');
+    console.log('Adding financial summary...');
     
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
-    doc.text('CLAIMS OVERVIEW', 14, cursorY);
+    doc.text('FINANCIAL OVERVIEW', 14, cursorY);
     cursorY += 8;
 
-    const summaryData = [];
-    
-    if (data.totalClaims !== undefined) {
-      summaryData.push(['Total Claims', data.totalClaims]);
-    }
-    
-    if (data.avgProcessingTime !== undefined) {
-      summaryData.push(['Avg Processing Time', `${data.avgProcessingTime} days`]);
-    }
+    autoTable(doc, {
+      startY: cursorY,
+      theme: 'grid',
+      head: [['Metric', 'Value']],
+      body: [
+        ['Total Claims', stats.totalClaims || 0],
+        ['Total Claimed', formatCurrencyMY(stats.totalClaimAmount || 0)],
+        ['Total Paid', formatCurrencyMY(stats.totalPaid || 0)],
+        ['Retention Held', formatCurrencyMY(stats.totalRetention || 0)],
+        ['Contract Value', formatCurrencyMY(stats.contractValue || 0)],
+        ['Progress', `${stats.progressPercentage || 0}%`]
+      ],
+      styles: { fontSize: 10 },
+      headStyles: { fillColor: [59, 130, 246] },
+      columnStyles: {
+        0: { cellWidth: 100 },
+        1: { cellWidth: 70, halign: 'right' }
+      }
+    });
 
-    // Status breakdown
-    if (data.statusData && data.statusData.length > 0) {
-      summaryData.push(['', '']); // Blank row
-      summaryData.push(['STATUS BREAKDOWN', '']);
-      data.statusData.forEach(status => {
-        summaryData.push([`  ${status.name}`, status.value]);
-      });
-    }
-
-    if (summaryData.length > 0) {
-      autoTable(doc, {
-        startY: cursorY,
-        theme: 'grid',
-        head: [['Metric', 'Value']],
-        body: summaryData,
-        styles: { fontSize: 10 },
-        headStyles: { fillColor: [59, 130, 246] },
-        columnStyles: {
-          0: { cellWidth: 100 },
-          1: { cellWidth: 70, halign: 'right' }
-        }
-      });
-
-      console.log('✅ Summary table added');
-    }
+    console.log('✅ Financial summary added');
   }
 
   // ===========================================
-  // PAGE 2: STATUS PIE CHART (LANDSCAPE)
+  // PAGE 2: CUMULATIVE CHART (LANDSCAPE)
   // ===========================================
-  if (includeStatusChart && data.statusData && data.statusData.length > 0) {
-    console.log('Adding status chart...');
+  if (includeCumulativeChart && data.cumulativeData && data.cumulativeData.length > 0) {
+    console.log('Adding cumulative chart...');
     
     // NEW PAGE - LANDSCAPE for chart
     doc.addPage('a4', 'landscape');
     
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
-    doc.text('CLAIMS BY STATUS', 14, 20);
+    doc.text('CUMULATIVE CLAIM AMOUNT', 14, 20);
 
     try {
-      const chartImage = await generateStatusChartImage(data.statusData);
+      const chartImage = await generateCumulativeChart(data.cumulativeData);
       
       if (chartImage) {
         // Landscape page width
         const landscapeWidth = doc.internal.pageSize.getWidth();
-        const chartWidth = Math.min(landscapeWidth - 40, 200);
-        const chartHeight = (chartWidth / 600) * 400;
+        const chartWidth = Math.min(landscapeWidth - 40, 220);
+        const chartHeight = (chartWidth / 700) * 400;
         
         doc.addImage(chartImage, 'PNG', 20, 30, chartWidth, chartHeight);
-        console.log('✅ Status chart added (landscape page)');
+        console.log('✅ Cumulative chart added (landscape page)');
       } else {
-        console.warn('⚠️ Status chart generation returned null');
+        console.warn('⚠️ Cumulative chart generation returned null');
         doc.setFontSize(10);
         doc.text('Chart could not be generated', 20, 30);
       }
     } catch (error) {
-      console.error('❌ Status chart error:', error);
+      console.error('❌ Cumulative chart error:', error);
       doc.setFontSize(10);
       doc.text('Error: ' + error.message, 20, 30);
     }
   }
 
   // ===========================================
-  // PAGE 3: MONTHLY TREND BAR CHART (LANDSCAPE)
+  // PAGE 3: MONTHLY BREAKDOWN CHART (LANDSCAPE)
   // ===========================================
-  if (includeMonthlyChart && data.monthlyTrend && data.monthlyTrend.length > 0) {
-    console.log('Adding monthly trend chart...');
+  if (includeMonthlyChart && data.monthlyBreakdown && data.monthlyBreakdown.length > 0) {
+    console.log('Adding monthly breakdown chart...');
     
     // NEW PAGE - LANDSCAPE for chart
     doc.addPage('a4', 'landscape');
     
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
-    doc.text('MONTHLY CLAIMS TREND', 14, 20);
+    doc.text('MONTHLY CLAIMS BREAKDOWN', 14, 20);
 
     try {
-      // Format data for chart
-      const monthlyData = data.monthlyTrend.map(item => ({
+      // Format data for chart - need to map to expected format
+      const monthlyData = data.monthlyBreakdown.map(item => ({
         month: item.month,
-        value: item.amount || item.count || 0
+        value: item.amount || 0,  // Use amount as primary value
+        count: item.count || 0    // Keep count as secondary
       }));
 
       const chartImage = await generateMonthlyProgressChart(monthlyData);
@@ -180,7 +170,7 @@ export const buildClaimsPdf = async ({ data, settings, contract }) => {
         const chartHeight = (chartWidth / 700) * 400;
         
         doc.addImage(chartImage, 'PNG', 20, 30, chartWidth, chartHeight);
-        console.log('✅ Monthly trend chart added (landscape page)');
+        console.log('✅ Monthly breakdown chart added (landscape page)');
       } else {
         console.warn('⚠️ Monthly chart generation returned null');
         doc.setFontSize(10);
@@ -194,14 +184,14 @@ export const buildClaimsPdf = async ({ data, settings, contract }) => {
   }
 
   // ===========================================
-  // PAGE 4: CLAIMS LIST TABLE (PORTRAIT)
+  // PAGE 4: PAYMENT TIMELINE TABLE (PORTRAIT)
   // ===========================================
-  const claimsList = data.allClaims || [];
+  const timeline = data.paymentTimeline || [];
   
-  console.log('Claims list length:', claimsList.length);
+  console.log('Payment timeline length:', timeline.length);
 
-  if (includeClaimsList && claimsList.length > 0) {
-    console.log('Adding claims list...');
+  if (includeTimeline && timeline.length > 0) {
+    console.log('Adding payment timeline...');
     
     // NEW PAGE - PORTRAIT for table
     doc.addPage('a4', 'portrait');
@@ -209,28 +199,28 @@ export const buildClaimsPdf = async ({ data, settings, contract }) => {
 
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
-    doc.text('CLAIMS LIST', 14, cursorY);
+    doc.text('PAYMENT TIMELINE', 14, cursorY);
     cursorY += 8;
 
-    // Create detailed claims table
+    // Create payment timeline table
     autoTable(doc, {
       startY: cursorY,
       theme: 'striped',
       head: [[
-        'No.',
-        'Title',
-        'Period',
-        'Submitted',
+        'Claim No.',
+        'Date',
         'Amount',
+        'Certified',
+        'Retention',
         'Status'
       ]],
-      body: claimsList.map(claim => [
-        claim.claim_number || '-',
-        claim.claim_title || '-',
-        `${formatDateMY(claim.claim_period_from)} - ${formatDateMY(claim.claim_period_to)}`,
-        formatDateMY(claim.submission_date),
-        formatCurrencyMY(claim.claim_amount || 0),
-        (claim.status || 'draft').toUpperCase()
+      body: timeline.map(payment => [
+        payment.claimNumber || '-',
+        formatDateMY(payment.claimDate),
+        formatCurrencyMY(payment.amount || 0),
+        formatCurrencyMY(payment.certified || 0),
+        formatCurrencyMY(payment.retention || 0),
+        (payment.status || 'pending').toUpperCase()
       ]),
       styles: { fontSize: 9, cellPadding: 3 },
       headStyles: { 
@@ -239,18 +229,18 @@ export const buildClaimsPdf = async ({ data, settings, contract }) => {
         fontStyle: 'bold'
       },
       columnStyles: {
-        0: { cellWidth: 15, halign: 'center' },
-        1: { cellWidth: 65 },
-        2: { cellWidth: 40 },
-        3: { cellWidth: 25 },
-        4: { cellWidth: 30, halign: 'right' },
-        5: { cellWidth: 20, halign: 'center' }
+        0: { cellWidth: 25 },
+        1: { cellWidth: 30 },
+        2: { cellWidth: 35, halign: 'right' },
+        3: { cellWidth: 35, halign: 'right' },
+        4: { cellWidth: 35, halign: 'right' },
+        5: { cellWidth: 25, halign: 'center' }
       },
       alternateRowStyles: { fillColor: [250, 250, 250] },
       margin: { left: 14, right: 14 }
     });
 
-    console.log('✅ Claims list added');
+    console.log('✅ Payment timeline added');
   }
 
   // ===========================================
@@ -280,7 +270,7 @@ export const buildClaimsPdf = async ({ data, settings, contract }) => {
   }
 
   const finalPageCount = doc.internal.getNumberOfPages();
-  console.log('✅ CLAIMS PDF generation complete');
+  console.log('✅ FINANCIAL PDF generation complete');
   console.log(`📄 Total pages: ${finalPageCount}`);
   console.log('==========================================');
 
