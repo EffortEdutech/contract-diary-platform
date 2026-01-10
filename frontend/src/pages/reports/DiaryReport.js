@@ -1,5 +1,5 @@
 // frontend/src/pages/reports/DiaryReport.js
-// CONSISTENT FORMAT - Matching BOQ structure with comprehensive sections
+// REFACTORED VERSION - Uses Chart Metadata
 
 import React, { useState, useEffect } from 'react';
 import { format, subMonths } from 'date-fns';
@@ -10,24 +10,30 @@ import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Toolti
 
 import { getDiaryReportData } from '../../services/reportService';
 import UniversalExportModal from '../../components/reports/UniversalExportModal';
+import { supabase } from '../../lib/supabase';
 
 const WEATHER_COLORS = {
   'Sunny': '#FCD34D',
   'Cloudy': '#9CA3AF',
   'Rainy': '#3B82F6',
-  'Heavy Rain': '#1E40AF'
+  'Heavy Rain': '#1E40AF',
+  'Stormy': '#fc2f2fff',
 };
 
-const DiaryReport = ({ contractId, contract }) => {
+const DiaryReport = ({ contractId, contract: propContract }) => {
   const [reportData, setReportData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showExport, setShowExport] = useState(false);
+  const [contract, setContract] = useState(propContract);
   const [startDate, setStartDate] = useState(format(subMonths(new Date(), 1), 'yyyy-MM-dd'));
   const [endDate, setEndDate] = useState(format(new Date(), 'yyyy-MM-dd'));
 
   useEffect(() => {
     if (contractId) {
       loadReportData();
+      if (!contract) {
+        loadContract();
+      }
     }
   }, [contractId, startDate, endDate]);
 
@@ -35,6 +41,8 @@ const DiaryReport = ({ contractId, contract }) => {
     setLoading(true);
     try {
       const data = await getDiaryReportData(contractId, startDate, endDate);
+      console.log('Diary Report data loaded:', data);
+      console.log('Has chartMetadata:', !!data.chartMetadata);
       setReportData(data);
     } catch (error) {
       console.error('Error loading diary report:', error);
@@ -45,7 +53,6 @@ const DiaryReport = ({ contractId, contract }) => {
           issuesCount: 0,
           weatherDistribution: {}
         },
-        weatherData: [],
         manpowerSummary: {},
         issuesDelays: [],
         diaries: []
@@ -55,19 +62,31 @@ const DiaryReport = ({ contractId, contract }) => {
     }
   };
 
+  const loadContract = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('contracts')
+        .select('*')
+        .eq('id', contractId)
+        .single();
+
+      if (error) throw error;
+      setContract(data);
+    } catch (err) {
+      console.error('Error loading contract:', err);
+    }
+  };
+
   const formatDate = (dateString) => {
     if (!dateString) return '-';
     return format(new Date(dateString), 'dd/MM/yyyy');
   };
 
-  // ============================================
-  // EXPORT TO PDF (Old Style - Direct)
-  // ============================================
+  // Quick PDF Export
   const exportToPDF = () => {
     const doc = new jsPDF('p', 'mm', 'a4');
     const stats = reportData?.statistics || {};
 
-    // Header
     doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
     doc.text('DIARY SUMMARY REPORT', 14, 20);
@@ -77,7 +96,6 @@ const DiaryReport = ({ contractId, contract }) => {
     doc.text(`Period: ${formatDate(startDate)} - ${formatDate(endDate)}`, 14, 28);
     doc.text(`Generated: ${formatDate(new Date())}`, 14, 34);
 
-    // Summary Table
     autoTable(doc, {
       startY: 42,
       head: [['Metric', 'Value']],
@@ -93,41 +111,32 @@ const DiaryReport = ({ contractId, contract }) => {
       }
     });
 
-    // Diaries Table
     if (reportData?.diaries?.length > 0) {
       doc.addPage();
-      
       doc.setFontSize(14);
       doc.text('All Diaries', 14, 20);
 
       autoTable(doc, {
         startY: 28,
-        head: [['Date', 'Weather', 'Manpower', 'Photos', 'Status']],
+        head: [['Date', 'Weather', 'Manpower', 'Photos']],
         body: reportData.diaries.map(d => [
           formatDate(d.diary_date),
-          d.weather || '-',
+          d.weather_conditions || '-',
           d.total_manpower || 0,
-          d.photo_count || 0,
-          (d.status || 'draft').toUpperCase()
+          d.photo_count || 0
         ]),
         theme: 'striped',
-        headStyles: { fillColor: [59, 130, 246] },
-        columnStyles: {
-          2: { halign: 'right' },
-          3: { halign: 'right' }
-        }
+        headStyles: { fillColor: [59, 130, 246] }
       });
     }
 
     doc.save(`Diary_Report_${new Date().toISOString().split('T')[0]}.pdf`);
   };
 
-  // ============================================
-  // EXPORT TO EXCEL
-  // ============================================
+  // Excel Export
   const exportToExcel = () => {
     const stats = reportData?.statistics || {};
-    
+
     const summaryData = [
       ['Diary Summary Report'],
       ['Period:', `${formatDate(startDate)} - ${formatDate(endDate)}`],
@@ -142,14 +151,13 @@ const DiaryReport = ({ contractId, contract }) => {
     const diariesData = reportData?.diaries?.length > 0 ? [
       [],
       ['All Diaries'],
-      ['Date', 'Weather', 'Temperature', 'Manpower', 'Photos', 'Work Done', 'Status'],
+      ['Date', 'Weather', 'Temperature', 'Manpower', 'Photos', 'Status'],
       ...reportData.diaries.map(d => [
         formatDate(d.diary_date),
-        d.weather || '-',
-        d.temperature || '-',
+        d.weather_conditions || '-',
+        d.temperature ? `${d.temperature}°C` : '-',
         d.total_manpower || 0,
         d.photo_count || 0,
-        d.work_done_summary || '-',
         d.status || 'draft'
       ])
     ] : [];
@@ -160,304 +168,217 @@ const DiaryReport = ({ contractId, contract }) => {
     XLSX.writeFile(wb, `Diary_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
-  const hasNoData = !reportData || !reportData.diaries || reportData.diaries.length === 0;
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  const stats = reportData?.statistics || {};
+  const weatherData = Object.entries(stats.weatherDistribution || {}).map(([name, value]) => ({ name, value }));
+  const manpowerData = Object.entries(reportData?.manpowerSummary || {}).map(([category, info]) => ({
+    category,
+    avgWorkers: parseFloat(info.avgWorkers || 0),
+    totalWorkers: info.totalWorkers || 0
+  }));
 
   return (
     <div className="space-y-6">
-      
       {/* Date Filter */}
-      <div className="bg-white p-4 rounded-lg shadow flex items-center space-x-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
-          <input
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg"
-          />
+      <div className="bg-white p-4 rounded-lg shadow border border-gray-200">
+        <div className="flex items-end gap-4">
+          <div className="flex-1">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+          <div className="flex-1">
+            <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+          <button
+            onClick={loadReportData}
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+          >
+            Apply
+          </button>
         </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
-          <input
-            type="date"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg"
-          />
+      </div>
+
+      {/* Statistics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-white p-6 rounded-lg shadow border border-gray-200">
+          <div className="text-sm text-gray-500 mb-1">Total Diaries</div>
+          <div className="text-3xl font-bold text-gray-900">{stats.totalDiaries || 0}</div>
         </div>
+        <div className="bg-blue-50 p-6 rounded-lg shadow border border-blue-200">
+          <div className="text-sm text-blue-600 mb-1">Total Photos</div>
+          <div className="text-3xl font-bold text-blue-700">{stats.totalPhotos || 0}</div>
+        </div>
+        <div className="bg-yellow-50 p-6 rounded-lg shadow border border-yellow-200">
+          <div className="text-sm text-yellow-600 mb-1">Issues Reported</div>
+          <div className="text-3xl font-bold text-yellow-700">{stats.issuesCount || 0}</div>
+        </div>
+      </div>
+
+      {/* Charts Row - ✅ USES METADATA */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+        {/* Weather Pie Chart - ✅ USES METADATA */}
+        {weatherData.length > 0 && (
+          <div className="bg-white p-6 rounded-lg shadow">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              {/* ✅ USE METADATA TITLE */}
+              {reportData.chartMetadata?.weatherChart?.title || 'Weather Distribution'}
+            </h3>
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={weatherData}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                  outerRadius={100}
+                  fill="#8884d8"
+                  dataKey={reportData.chartMetadata?.weatherChart?.dataKey || 'value'}
+                  nameKey={reportData.chartMetadata?.weatherChart?.labelKey || 'name'}
+                >
+                  {weatherData.map((entry, index) => {
+                    // ✅ USE METADATA COLORS IF AVAILABLE
+                    const metadata = reportData.chartMetadata?.weatherChart;
+                    const color = metadata?.colors?.[entry.name] || WEATHER_COLORS[entry.name] || '#6b7280';
+                    return <Cell key={`cell-${index}`} fill={color} />;
+                  })}
+                </Pie>
+                <Tooltip />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+
+        {/* Manpower Bar Chart - ✅ USES METADATA */}
+        {manpowerData.length > 0 && reportData.chartMetadata?.manpowerChart && (
+          <div className="bg-white p-6 rounded-lg shadow">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              {/* ✅ USE METADATA TITLE */}
+              {reportData.chartMetadata.manpowerChart.title || 'Manpower by Trade'}
+            </h3>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={manpowerData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey={reportData.chartMetadata.manpowerChart.xAxisKey || 'category'} />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                
+                {/* ✅ MAP DATASETS FROM METADATA */}
+                {reportData.chartMetadata.manpowerChart.datasets?.map((dataset, index) => (
+                  <Bar
+                    key={index}
+                    dataKey={dataset.key}
+                    fill={dataset.color}
+                    name={dataset.label}
+                  />
+                ))}
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+      </div>
+
+      {/* All Diaries Table */}
+      {reportData?.diaries && reportData.diaries.length > 0 && (
+        <div className="bg-white rounded-lg shadow overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900">All Diaries</h3>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Weather</th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Temp</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Manpower</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Photos</th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {reportData.diaries.map((diary, index) => (
+                  <tr key={index} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 text-sm text-gray-900">{formatDate(diary.diary_date)}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{diary.weather_conditions || '-'}</td>
+                    <td className="px-4 py-3 text-sm text-center text-gray-600">
+                      {diary.temperature ? `${diary.temperature}°C` : '-'}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-right text-gray-900">{diary.total_manpower || 0}</td>
+                    <td className="px-4 py-3 text-sm text-right text-gray-600">{diary.photo_count || 0}</td>
+                    <td className="px-4 py-3 text-sm text-center">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        diary.status === 'acknowledged' ? 'bg-green-100 text-green-800' :
+                        diary.status === 'submitted' ? 'bg-yellow-100 text-yellow-800' :
+                        'bg-gray-100 text-gray-800'
+                      }`}>
+                        {diary.status || 'draft'}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Export Buttons - 3-button layout */}
+      <div className="flex gap-3">
         <button
-          onClick={loadReportData}
-          disabled={loading}
-          className="mt-6 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          onClick={exportToPDF}
+          className="flex-1 bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg font-medium transition-colors shadow-sm flex items-center justify-center gap-2"
         >
-          {loading ? 'Loading...' : 'Apply'}
+          <span>📄</span>
+          Export PDF
+        </button>
+        
+        <button
+          onClick={exportToExcel}
+          className="flex-1 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium transition-colors shadow-sm flex items-center justify-center gap-2"
+        >
+          <span>📊</span>
+          Export Excel
+        </button>
+        
+        <button
+          onClick={() => setShowExport(true)}
+          className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors shadow-sm flex items-center justify-center gap-2"
+        >
+          <span>🎨</span>
+          Export PDF (Advanced)
         </button>
       </div>
 
-      {/* Loading */}
-      {loading && (
-        <div className="bg-white p-12 rounded-lg shadow text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent"></div>
-          <p className="mt-4 text-gray-600">Loading diary data...</p>
-        </div>
-      )}
-
-      {/* No Data */}
-      {!loading && hasNoData && (
-        <div className="bg-white p-12 rounded-lg shadow text-center">
-          <svg className="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-          </svg>
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">No Diary Data</h3>
-          <p className="text-gray-600">Create work diaries to see summary analysis.</p>
-        </div>
-      )}
-
-      {/* Main Content */}
-      {!loading && !hasNoData && (() => {
-        const stats = reportData.statistics;
-        const weatherData = Object.entries(stats.weatherDistribution || {}).map(([name, value]) => ({ name, value }));
-        const manpowerData = Object.entries(reportData.manpowerSummary || {}).map(([category, data]) => ({
-          category,
-          avgWorkers: parseFloat(data.avgWorkers || 0),
-          totalWorkers: data.totalWorkers || 0
-        }));
-
-        return (
-          <>
-            {/* Statistics Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-white p-6 rounded-lg shadow border border-gray-200">
-                <div className="text-sm text-gray-500 mb-1">Total Diaries</div>
-                <div className="text-3xl font-bold text-gray-900">{stats.totalDiaries || 0}</div>
-              </div>
-              <div className="bg-blue-50 p-6 rounded-lg shadow border border-blue-200">
-                <div className="text-sm text-blue-600 mb-1">Total Photos</div>
-                <div className="text-3xl font-bold text-blue-700">{stats.totalPhotos || 0}</div>
-              </div>
-              <div className="bg-yellow-50 p-6 rounded-lg shadow border border-yellow-200">
-                <div className="text-sm text-yellow-600 mb-1">Issues Reported</div>
-                <div className="text-3xl font-bold text-yellow-700">{stats.issuesCount || 0}</div>
-              </div>
-            </div>
-
-            {/* Diary Overview Table */}
-            <div className="bg-white p-6 rounded-lg shadow">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Diary Overview</h3>
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-blue-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Metric</th>
-                      <th className="px-6 py-3 text-right text-sm font-semibold text-gray-900">Value</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    <tr className="hover:bg-gray-50">
-                      <td className="px-6 py-4 text-sm font-medium text-gray-900">Total Diaries</td>
-                      <td className="px-6 py-4 text-sm text-right font-semibold text-gray-900">{stats.totalDiaries || 0}</td>
-                    </tr>
-                    <tr className="hover:bg-gray-50">
-                      <td className="px-6 py-4 text-sm font-medium text-gray-900">Total Photos Uploaded</td>
-                      <td className="px-6 py-4 text-sm text-right font-semibold text-blue-600">{stats.totalPhotos || 0}</td>
-                    </tr>
-                    <tr className="hover:bg-gray-50">
-                      <td className="px-6 py-4 text-sm font-medium text-gray-900">Issues/Delays Reported</td>
-                      <td className="px-6 py-4 text-sm text-right font-semibold text-yellow-600">{stats.issuesCount || 0}</td>
-                    </tr>
-                    
-                    {/* Weather Breakdown */}
-                    {weatherData.length > 0 && (
-                      <>
-                        <tr className="bg-gray-50">
-                          <td colSpan="2" className="px-6 py-3 text-sm font-bold text-gray-700 uppercase">Weather Distribution</td>
-                        </tr>
-                        {weatherData.map((weather, index) => (
-                          <tr key={index} className="hover:bg-gray-50">
-                            <td className="px-6 py-4 text-sm text-gray-700 pl-12">• {weather.name}</td>
-                            <td className="px-6 py-4 text-sm text-right font-medium text-gray-900">{weather.value} days</td>
-                          </tr>
-                        ))}
-                      </>
-                    )}
-
-                    {/* Manpower Summary */}
-                    {manpowerData.length > 0 && (
-                      <>
-                        <tr className="bg-gray-50">
-                          <td colSpan="2" className="px-6 py-3 text-sm font-bold text-gray-700 uppercase">Average Manpower by Trade</td>
-                        </tr>
-                        {manpowerData.map((trade, index) => (
-                          <tr key={index} className="hover:bg-gray-50">
-                            <td className="px-6 py-4 text-sm text-gray-700 pl-12">• {trade.category}</td>
-                            <td className="px-6 py-4 text-sm text-right">
-                              <span className="font-medium text-gray-900">{trade.avgWorkers.toFixed(1)} avg</span>
-                              <span className="text-gray-500 ml-2">({trade.totalWorkers} total)</span>
-                            </td>
-                          </tr>
-                        ))}
-                      </>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* Weather Chart */}
-            {weatherData.length > 0 && (
-              <div className="bg-white p-6 rounded-lg shadow">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Weather Distribution</h3>
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie
-                      data={weatherData}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                      outerRadius={100}
-                      fill="#8884d8"
-                      dataKey="value"
-                    >
-                      {weatherData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={WEATHER_COLORS[entry.name] || '#6b7280'} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            )}
-
-            {/* Manpower Chart */}
-            {manpowerData.length > 0 && (
-              <div className="bg-white p-6 rounded-lg shadow">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Manpower by Trade</h3>
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={manpowerData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="category" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Bar dataKey="avgWorkers" fill="#3b82f6" name="Average Workers" />
-                    <Bar dataKey="totalWorkers" fill="#10b981" name="Total Workers" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            )}
-
-            {/* Issues/Delays Table */}
-            {reportData.issuesDelays && reportData.issuesDelays.length > 0 && (
-              <div className="bg-white p-6 rounded-lg shadow">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Issues & Delays</h3>
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Issue/Delay</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {reportData.issuesDelays.map((issue, index) => (
-                        <tr key={index} className="hover:bg-gray-50">
-                          <td className="px-4 py-4 text-sm text-gray-600">{formatDate(issue.date)}</td>
-                          <td className="px-4 py-4 text-sm text-gray-900">{issue.description}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
-            {/* All Diaries Table */}
-            {reportData.diaries && reportData.diaries.length > 0 && (
-              <div className="bg-white p-6 rounded-lg shadow">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">All Diaries</h3>
-                  <span className="text-sm text-gray-500">{reportData.diaries.length} diaries</span>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Weather</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Temp.</th>
-                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Manpower</th>
-                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Photos</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Work Done</th>
-                        <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {reportData.diaries.map((diary, index) => (
-                        <tr key={diary.id || index} className="hover:bg-gray-50">
-                          <td className="px-4 py-4 text-sm font-medium text-gray-900">{formatDate(diary.diary_date)}</td>
-                          <td className="px-4 py-4 text-sm text-gray-700">{diary.weather || '-'}</td>
-                          <td className="px-4 py-4 text-sm text-gray-700">{diary.temperature || '-'}°C</td>
-                          <td className="px-4 py-4 text-sm text-right font-medium text-gray-900">{diary.total_manpower || 0}</td>
-                          <td className="px-4 py-4 text-sm text-right text-blue-600">{diary.photo_count || 0}</td>
-                          <td className="px-4 py-4 text-sm text-gray-700 max-w-xs truncate" title={diary.work_done_summary}>
-                            {diary.work_done_summary || '-'}
-                          </td>
-                          <td className="px-4 py-4 text-center">
-                            <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold uppercase ${
-                              diary.status === 'acknowledged' ? 'bg-green-100 text-green-800 border border-green-300' :
-                              diary.status === 'submitted' ? 'bg-blue-100 text-blue-800 border border-blue-300' :
-                              'bg-gray-100 text-gray-700 border border-gray-300'
-                            }`}>
-                              {diary.status || 'draft'}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
-            {/* Export Buttons - BOQ STYLE */}
-            <div className="flex gap-3">
-              <button
-                onClick={exportToPDF}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
-              >
-                📄 Export PDF
-              </button>
-
-              <button
-                onClick={exportToExcel}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
-              >
-                📊 Export Excel
-              </button>
-
-              <button
-                onClick={() => setShowExport(true)}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-              >
-                🎨 Export PDF (Advanced)
-              </button>
-            </div>
-          </>
-        );
-      })()}
-
-      {/* Universal Export Modal (Advanced Option) */}
-      {showExport && reportData && (
-        <UniversalExportModal
-          open={showExport}
-          onClose={() => setShowExport(false)}
-          reportType="diary"
-          reportData={reportData}
-          contract={contract}
-        />
-      )}
+      {/* Universal Export Modal */}
+      <UniversalExportModal
+        open={showExport}
+        onClose={() => setShowExport(false)}
+        reportType="diary"
+        reportData={reportData}
+        contract={contract}
+      />
     </div>
   );
 };

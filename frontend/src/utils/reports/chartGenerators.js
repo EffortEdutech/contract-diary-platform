@@ -1,7 +1,8 @@
 // frontend/src/utils/reports/chartGenerators.js
-// COMPLETE REFACTORED VERSION - With Metadata Support
+// UPDATED VERSION - WITH PERCENTAGE LABELS ON PIE CHARTS
 
 import { Chart } from 'chart.js/auto';
+import ChartDataLabels from 'chartjs-plugin-datalabels';  // ✅ NEW: For percentage labels
 
 /**
  * Wait for animation/rendering to complete
@@ -17,6 +18,7 @@ const waitForChart = (ms = 500) => {
  * Generate status distribution pie chart as base64 PNG
  * ✅ FIXED: Accepts both 'name' and 'label' fields
  * ✅ Uses metadata for colors if provided
+ * ✅ NEW: Shows percentages on pie slices
  * 
  * @param {Array} statusData - Array of {name/label, value} objects
  * @param {Object} metadata - Chart configuration from reportService
@@ -76,6 +78,7 @@ export const generateStatusChartImage = async (statusData, metadata = {}) => {
           borderColor: '#ffffff'
         }]
       },
+      plugins: [ChartDataLabels],  // ✅ NEW: Enable datalabels plugin
       options: {
         responsive: false,
         maintainAspectRatio: true,
@@ -104,6 +107,30 @@ export const generateStatusChartImage = async (statusData, metadata = {}) => {
               top: 10,
               bottom: 10
             }
+          },
+          
+          // ✅ NEW: Configure percentage labels on pie slices
+          datalabels: {
+            formatter: (value, ctx) => {
+              // Calculate percentage
+              const sum = ctx.dataset.data.reduce((a, b) => a + b, 0);
+              const percentage = ((value / sum) * 100).toFixed(0);
+              const label = ctx.chart.data.labels[ctx.dataIndex];
+              
+              // Return formatted label: "Sunny: 25%"
+              return label + ': ' + percentage + '%';
+            },
+            color: '#fff',  // White text for contrast
+            font: {
+              weight: 'bold',
+              size: 11
+            },
+            textAlign: 'center',
+            anchor: 'center',
+            align: 'center',
+            // Add text shadow for better readability
+            textStrokeColor: 'rgba(0, 0, 0, 0.5)',
+            textStrokeWidth: 2
           }
         }
       }
@@ -115,7 +142,7 @@ export const generateStatusChartImage = async (statusData, metadata = {}) => {
     // Convert canvas to base64 PNG
     const imageData = canvas.toDataURL('image/png', 1.0);
 
-    console.log('Status chart generated successfully');
+    console.log('Status chart generated successfully with percentage labels');
 
     // Cleanup
     chart.destroy();
@@ -141,10 +168,10 @@ export const generateStatusChartImage = async (statusData, metadata = {}) => {
 // 2. LINE CHART - Cumulative Progress
 // ===========================================
 /**
- * Generate line chart for cumulative progress
+ * Generate cumulative line chart as base64 PNG
  * ✅ Uses metadata for configuration
  * 
- * @param {Array} cumulativeData - Array of {date, value} objects
+ * @param {Array} cumulativeData - Array of {date, cumulative} objects
  * @param {Object} metadata - Chart configuration from reportService
  * @returns {Promise<string|null>} - Base64 encoded PNG image
  */
@@ -154,41 +181,42 @@ export const generateCumulativeChart = async (cumulativeData, metadata = {}) => 
     return null;
   }
 
-  console.log('Generating cumulative chart');
+  console.log('Generating cumulative chart with metadata:', metadata);
 
   const canvas = document.createElement('canvas');
   canvas.width = 700;
   canvas.height = 400;
-
   canvas.style.position = 'absolute';
   canvas.style.left = '-9999px';
   document.body.appendChild(canvas);
 
   const ctx = canvas.getContext('2d');
 
-  // Get configuration from metadata or use defaults
-  const xAxisKey = metadata.xAxisKey || 'date';
-  const dataset = metadata.datasets?.[0] || {};
-  const dataKey = dataset.key || 'cumulative';
-  const label = dataset.label || 'Cumulative Amount (RM)';
-  const color = dataset.color || '#3b82f6';
-  const title = metadata.title || 'Cumulative Progress';
+  // Get configuration from metadata
+  const xAxisKey = metadata?.xAxisKey || 'date';
+  const datasets = metadata?.datasets || [{
+    key: 'cumulative',
+    label: 'Cumulative Amount',
+    color: '#3b82f6'
+  }];
+  const chartTitle = metadata?.title || 'Cumulative Progress';
 
   try {
     const chart = new Chart(ctx, {
       type: 'line',
       data: {
         labels: cumulativeData.map(d => d[xAxisKey]),
-        datasets: [{
-          label: label,
-          data: cumulativeData.map(d => d[dataKey]),
-          borderColor: color,
-          backgroundColor: color + '20',
-          tension: 0.4,
+        datasets: datasets.map(ds => ({
+          label: ds.label,
+          data: cumulativeData.map(d => d[ds.key] || 0),
+          borderColor: ds.color,
+          backgroundColor: ds.color.replace('f6', 'cc') + '40', // Add transparency
+          borderWidth: 3,
           fill: true,
-          pointRadius: 3,
-          pointBackgroundColor: color
-        }]
+          tension: 0.4,
+          pointRadius: 4,
+          pointHoverRadius: 6
+        }))
       },
       options: {
         responsive: false,
@@ -198,11 +226,17 @@ export const generateCumulativeChart = async (cumulativeData, metadata = {}) => 
         plugins: {
           legend: {
             display: true,
-            position: 'top'
+            position: 'top',
+            labels: {
+              padding: 10,
+              font: {
+                size: 11
+              }
+            }
           },
           title: {
             display: true,
-            text: title,
+            text: chartTitle,
             font: {
               size: 14,
               weight: 'bold'
@@ -212,9 +246,17 @@ export const generateCumulativeChart = async (cumulativeData, metadata = {}) => 
         scales: {
           y: {
             beginAtZero: true,
-            title: {
-              display: true,
-              text: label
+            ticks: {
+              font: {
+                size: 10
+              }
+            }
+          },
+          x: {
+            ticks: {
+              font: {
+                size: 10
+              }
             }
           }
         }
@@ -224,6 +266,8 @@ export const generateCumulativeChart = async (cumulativeData, metadata = {}) => 
     await waitForChart(500);
 
     const imageData = canvas.toDataURL('image/png', 1.0);
+
+    console.log('Cumulative chart generated successfully');
 
     chart.destroy();
     document.body.removeChild(canvas);
@@ -240,12 +284,11 @@ export const generateCumulativeChart = async (cumulativeData, metadata = {}) => 
 };
 
 // ===========================================
-// 3. BAR CHART - Single Dataset (Monthly Progress)
+// 3. BAR CHART - Monthly Progress
 // ===========================================
 /**
- * Generate bar chart for monthly progress
- * ✅ REFACTORED: Now accepts metadata parameter
- * ✅ Uses metadata for labels, colors, and configuration
+ * Generate monthly progress bar chart as base64 PNG
+ * ✅ Uses metadata for configuration
  * 
  * @param {Array} monthlyData - Array of data objects
  * @param {Object} metadata - Chart configuration from reportService
@@ -262,34 +305,33 @@ export const generateMonthlyProgressChart = async (monthlyData, metadata = {}) =
   const canvas = document.createElement('canvas');
   canvas.width = 700;
   canvas.height = 400;
-
   canvas.style.position = 'absolute';
   canvas.style.left = '-9999px';
   document.body.appendChild(canvas);
 
   const ctx = canvas.getContext('2d');
 
-  // Extract metadata or use defaults
-  const xAxisKey = metadata.xAxisKey || 'month';
-  const dataset = metadata.datasets?.[0] || {};
-  const dataKey = dataset.key || 'value';
-  const label = dataset.label || 'Amount (RM)';
-  const yAxisLabel = dataset.yAxisLabel || label;
-  const color = dataset.color || '#3b82f6';
-  const chartTitle = metadata.title || 'Monthly Progress';
+  // Get configuration from metadata
+  const xAxisKey = metadata?.xAxisKey || 'month';
+  const datasets = metadata?.datasets || [{
+    key: 'value',
+    label: 'Value',
+    color: '#3b82f6'
+  }];
+  const chartTitle = metadata?.title || 'Monthly Progress';
 
   try {
     const chart = new Chart(ctx, {
       type: 'bar',
       data: {
-        labels: monthlyData.map(d => d[xAxisKey] || d.month || d.category),
-        datasets: [{
-          label: label,
-          data: monthlyData.map(d => d[dataKey]),
-          backgroundColor: color,
-          borderColor: color.replace('f6', 'eb'),
+        labels: monthlyData.map(d => d[xAxisKey]),
+        datasets: datasets.map(ds => ({
+          label: ds.label,
+          data: monthlyData.map(d => d[ds.key] || 0),
+          backgroundColor: ds.color,
+          borderColor: ds.color.replace('f6', 'eb').replace('81', '69'),
           borderWidth: 1
-        }]
+        }))
       },
       options: {
         responsive: false,
@@ -298,8 +340,14 @@ export const generateMonthlyProgressChart = async (monthlyData, metadata = {}) =
         },
         plugins: {
           legend: {
-            display: true,
-            position: 'top'
+            display: datasets.length > 1,
+            position: 'top',
+            labels: {
+              padding: 10,
+              font: {
+                size: 11
+              }
+            }
           },
           title: {
             display: true,
@@ -313,9 +361,17 @@ export const generateMonthlyProgressChart = async (monthlyData, metadata = {}) =
         scales: {
           y: {
             beginAtZero: true,
-            title: {
-              display: true,
-              text: yAxisLabel
+            ticks: {
+              font: {
+                size: 10
+              }
+            }
+          },
+          x: {
+            ticks: {
+              font: {
+                size: 10
+              }
             }
           }
         }
@@ -334,7 +390,7 @@ export const generateMonthlyProgressChart = async (monthlyData, metadata = {}) =
     return imageData;
 
   } catch (error) {
-    console.error('Error generating monthly chart:', error);
+    console.error('Error generating monthly progress chart:', error);
     try {
       document.body.removeChild(canvas);
     } catch (e) {}
@@ -343,12 +399,11 @@ export const generateMonthlyProgressChart = async (monthlyData, metadata = {}) =
 };
 
 // ===========================================
-// 4. DUAL BAR CHART - Two Datasets (Count + Amount)
+// 4. DUAL BAR CHART - Two Datasets with Two Y-Axes
 // ===========================================
 /**
- * Generate bar chart with DUAL datasets (e.g., count + amount)
- * ✅ NEW FUNCTION: For Claims and Financial reports
- * ✅ Uses metadata for complete configuration
+ * Generate dual bar chart with two y-axes as base64 PNG
+ * ✅ Uses metadata for configuration
  * 
  * @param {Array} monthlyData - Array of data objects
  * @param {Object} metadata - Chart configuration from reportService
@@ -356,28 +411,28 @@ export const generateMonthlyProgressChart = async (monthlyData, metadata = {}) =
  */
 export const generateDualBarChart = async (monthlyData, metadata = {}) => {
   if (!monthlyData || monthlyData.length === 0) {
-    console.warn('No monthly data provided for dual chart');
+    console.warn('No monthly data provided for dual bar chart');
     return null;
   }
 
-  const chartTitle = metadata.title || 'Monthly Data';
-  const xAxisKey = metadata.xAxisKey || 'month';
-  const datasets = metadata.datasets || [
-    { key: 'count', label: 'Count', color: '#3b82f6', yAxis: 'left' },
-    { key: 'amount', label: 'Amount', color: '#10b981', yAxis: 'right' }
-  ];
-
-  console.log('Generating dual bar chart with metadata:', { chartTitle, datasets: datasets.length });
+  console.log('Generating dual bar chart with metadata:', metadata);
 
   const canvas = document.createElement('canvas');
   canvas.width = 700;
   canvas.height = 400;
-
   canvas.style.position = 'absolute';
   canvas.style.left = '-9999px';
   document.body.appendChild(canvas);
 
   const ctx = canvas.getContext('2d');
+
+  // Get configuration from metadata
+  const xAxisKey = metadata?.xAxisKey || 'month';
+  const datasets = metadata?.datasets || [
+    { key: 'count', label: 'Count', color: '#3b82f6', yAxis: 'left' },
+    { key: 'amount', label: 'Amount', color: '#10b981', yAxis: 'right' }
+  ];
+  const chartTitle = metadata?.title || 'Monthly Breakdown';
 
   try {
     const chart = new Chart(ctx, {

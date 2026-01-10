@@ -286,7 +286,8 @@ export const getDiaryReportData = async (contractId, startDate, endDate) => {
             'Sunny': '#fcd34d',
             'Cloudy': '#9ca3af',
             'Rainy': '#3b82f6',
-            'Heavy Rain': '#1e40af'
+            'Heavy Rain': '#1e40af',
+            'Stormy': '#fc2f2fff',
           }
         },
         manpowerChart: {

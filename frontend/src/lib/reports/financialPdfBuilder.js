@@ -1,5 +1,5 @@
 // frontend/src/lib/reports/financialPdfBuilder.js
-// Financial Report PDF Builder with charts
+// REFACTORED VERSION - With Chart Metadata Support
 
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -11,21 +11,15 @@ import {
 
 import { 
   generateCumulativeChart,
-  generateMonthlyProgressChart
+  generateDualBarChart
 } from '../../utils/reports/chartGenerators';
 
-/**
- * Build Financial Report PDF
- * Structure: Summary → Cumulative Chart → Monthly Chart → Payment Timeline
- */
 export const buildFinancialPdf = async ({ data, settings, contract }) => {
   console.log('==========================================');
-  console.log('FINANCIAL PDF BUILDER CALLED');
-  console.log('Data structure:', Object.keys(data));
-  console.log('Settings:', settings);
+  console.log('FINANCIAL PDF BUILDER CALLED (REFACTORED)');
+  console.log('Has chartMetadata:', !!data.chartMetadata);
   console.log('==========================================');
 
-  // Start with PORTRAIT
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
@@ -38,7 +32,6 @@ export const buildFinancialPdf = async ({ data, settings, contract }) => {
   doc.setFontSize(16);
   doc.setFont('helvetica', 'bold');
   doc.text('FINANCIAL REPORT', pageWidth / 2, 15, { align: 'center' });
-  console.log('✅ Added FINANCIAL header');
 
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
@@ -56,18 +49,10 @@ export const buildFinancialPdf = async ({ data, settings, contract }) => {
 
   let cursorY = y + 10;
 
-  // Content flags
   const includeSummary = settings.content?.includeSummary !== false;
-  const includeCumulativeChart = settings.content?.includeStatusChart !== false; // Using statusChart flag
-  const includeMonthlyChart = settings.content?.includeSectionProgress !== false; // Using sectionProgress flag
-  const includeTimeline = true; // Always show timeline
-
-  console.log('Content flags:', {
-    includeSummary,
-    includeCumulativeChart,
-    includeMonthlyChart,
-    includeTimeline
-  });
+  const includeCumulativeChart = settings.content?.includeStatusChart !== false;
+  const includeMonthlyChart = settings.content?.includeSectionProgress !== false;
+  const includeTimeline = true;
 
   const stats = data.statistics || {};
 
@@ -75,8 +60,6 @@ export const buildFinancialPdf = async ({ data, settings, contract }) => {
   // PAGE 1: FINANCIAL SUMMARY (PORTRAIT)
   // ===========================================
   if (includeSummary) {
-    console.log('Adding financial summary...');
-    
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
     doc.text('FINANCIAL OVERVIEW', 14, cursorY);
@@ -109,60 +92,54 @@ export const buildFinancialPdf = async ({ data, settings, contract }) => {
   // PAGE 2: CUMULATIVE CHART (LANDSCAPE)
   // ===========================================
   if (includeCumulativeChart && data.cumulativeData && data.cumulativeData.length > 0) {
-    console.log('Adding cumulative chart...');
-    
-    // NEW PAGE - LANDSCAPE for chart
     doc.addPage('a4', 'landscape');
     
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
-    doc.text('CUMULATIVE CLAIM AMOUNT', 14, 20);
+    
+    // ✅ USE METADATA TITLE
+    const chartTitle = data.chartMetadata?.cumulativeChart?.title || 'CUMULATIVE CLAIM AMOUNT';
+    doc.text(chartTitle, 14, 20);
 
     try {
-      const chartImage = await generateCumulativeChart(data.cumulativeData);
+      // ✅ PASS METADATA
+      const chartImage = await generateCumulativeChart(
+        data.cumulativeData,
+        data.chartMetadata?.cumulativeChart
+      );
       
       if (chartImage) {
-        // Landscape page width
         const landscapeWidth = doc.internal.pageSize.getWidth();
         const chartWidth = Math.min(landscapeWidth - 40, 220);
         const chartHeight = (chartWidth / 700) * 400;
         
         doc.addImage(chartImage, 'PNG', 20, 30, chartWidth, chartHeight);
-        console.log('✅ Cumulative chart added (landscape page)');
-      } else {
-        console.warn('⚠️ Cumulative chart generation returned null');
-        doc.setFontSize(10);
-        doc.text('Chart could not be generated', 20, 30);
+        console.log('✅ Cumulative chart added with metadata');
       }
     } catch (error) {
       console.error('❌ Cumulative chart error:', error);
-      doc.setFontSize(10);
-      doc.text('Error: ' + error.message, 20, 30);
     }
   }
 
   // ===========================================
-  // PAGE 3: MONTHLY BREAKDOWN CHART (LANDSCAPE)
+  // PAGE 3: MONTHLY BREAKDOWN DUAL BAR (LANDSCAPE)
   // ===========================================
   if (includeMonthlyChart && data.monthlyBreakdown && data.monthlyBreakdown.length > 0) {
-    console.log('Adding monthly breakdown chart...');
-    
-    // NEW PAGE - LANDSCAPE for chart
     doc.addPage('a4', 'landscape');
     
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
-    doc.text('MONTHLY CLAIMS BREAKDOWN', 14, 20);
+    
+    // ✅ USE METADATA TITLE
+    const chartTitle = data.chartMetadata?.monthlyBreakdown?.title || 'MONTHLY CLAIMS BREAKDOWN';
+    doc.text(chartTitle, 14, 20);
 
     try {
-      // Format data for chart - need to map to expected format
-      const monthlyData = data.monthlyBreakdown.map(item => ({
-        month: item.month,
-        value: item.amount || 0,  // Use amount as primary value
-        count: item.count || 0    // Keep count as secondary
-      }));
-
-      const chartImage = await generateMonthlyProgressChart(monthlyData);
+      // ✅ USE DUAL BAR CHART WITH METADATA
+      const chartImage = await generateDualBarChart(
+        data.monthlyBreakdown,
+        data.chartMetadata?.monthlyBreakdown
+      );
       
       if (chartImage) {
         const landscapeWidth = doc.internal.pageSize.getWidth();
@@ -170,30 +147,19 @@ export const buildFinancialPdf = async ({ data, settings, contract }) => {
         const chartHeight = (chartWidth / 700) * 400;
         
         doc.addImage(chartImage, 'PNG', 20, 30, chartWidth, chartHeight);
-        console.log('✅ Monthly breakdown chart added (landscape page)');
-      } else {
-        console.warn('⚠️ Monthly chart generation returned null');
-        doc.setFontSize(10);
-        doc.text('Chart could not be generated', 20, 30);
+        console.log('✅ Monthly breakdown chart added with dual bars');
       }
     } catch (error) {
       console.error('❌ Monthly chart error:', error);
-      doc.setFontSize(10);
-      doc.text('Error: ' + error.message, 20, 30);
     }
   }
 
   // ===========================================
-  // PAGE 4: PAYMENT TIMELINE TABLE (PORTRAIT)
+  // PAGE 4: PAYMENT TIMELINE (PORTRAIT)
   // ===========================================
   const timeline = data.paymentTimeline || [];
   
-  console.log('Payment timeline length:', timeline.length);
-
   if (includeTimeline && timeline.length > 0) {
-    console.log('Adding payment timeline...');
-    
-    // NEW PAGE - PORTRAIT for table
     doc.addPage('a4', 'portrait');
     cursorY = 30;
 
@@ -202,7 +168,6 @@ export const buildFinancialPdf = async ({ data, settings, contract }) => {
     doc.text('PAYMENT TIMELINE', 14, cursorY);
     cursorY += 8;
 
-    // Create payment timeline table
     autoTable(doc, {
       startY: cursorY,
       theme: 'striped',
@@ -223,11 +188,7 @@ export const buildFinancialPdf = async ({ data, settings, contract }) => {
         (payment.status || 'pending').toUpperCase()
       ]),
       styles: { fontSize: 9, cellPadding: 3 },
-      headStyles: { 
-        fillColor: [59, 130, 246],
-        textColor: [255, 255, 255],
-        fontStyle: 'bold'
-      },
+      headStyles: { fillColor: [59, 130, 246] },
       columnStyles: {
         0: { cellWidth: 25 },
         1: { cellWidth: 30 },
@@ -235,9 +196,7 @@ export const buildFinancialPdf = async ({ data, settings, contract }) => {
         3: { cellWidth: 35, halign: 'right' },
         4: { cellWidth: 35, halign: 'right' },
         5: { cellWidth: 25, halign: 'center' }
-      },
-      alternateRowStyles: { fillColor: [250, 250, 250] },
-      margin: { left: 14, right: 14 }
+      }
     });
 
     console.log('✅ Payment timeline added');
@@ -248,8 +207,6 @@ export const buildFinancialPdf = async ({ data, settings, contract }) => {
   // ===========================================
   if (settings.footer?.showPageNumbers || settings.footer?.showGeneratedDate) {
     const pageCount = doc.internal.getNumberOfPages();
-    
-    console.log(`Adding footers to ${pageCount} pages...`);
     
     for (let i = 1; i <= pageCount; i++) {
       doc.setPage(i);
@@ -269,10 +226,10 @@ export const buildFinancialPdf = async ({ data, settings, contract }) => {
     }
   }
 
-  const finalPageCount = doc.internal.getNumberOfPages();
-  console.log('✅ FINANCIAL PDF generation complete');
-  console.log(`📄 Total pages: ${finalPageCount}`);
+  console.log('✅ FINANCIAL PDF complete');
   console.log('==========================================');
 
   return doc;
 };
+
+export default buildFinancialPdf;

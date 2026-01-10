@@ -1,5 +1,5 @@
 // frontend/src/lib/reports/boqPdfBuilder.js
-// FIXED VERSION - With debug logging and guaranteed content rendering
+// COMPLETE REFACTORED VERSION - With Chart Metadata Support
 
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -15,14 +15,15 @@ import {
 
 /**
  * Build BOQ Progress Report PDF
- * FIXED: Proper content rendering, correct title, per-section orientation
+ * ✅ REFACTORED: Uses chartMetadata from reportService
+ * ✅ Proper content rendering with per-section orientation
  */
 export const buildBOQPdf = async ({ data, settings, contract }) => {
   console.log('==========================================');
-  console.log('BOQ PDF BUILDER CALLED');
+  console.log('BOQ PDF BUILDER CALLED (REFACTORED)');
   console.log('Settings:', settings);
-  console.log('Data:', data);
-  console.log('Contract:', contract);
+  console.log('Data keys:', Object.keys(data));
+  console.log('Has chartMetadata:', !!data.chartMetadata);
   console.log('==========================================');
 
   // Start with PORTRAIT
@@ -105,16 +106,24 @@ export const buildBOQPdf = async ({ data, settings, contract }) => {
   // ===========================================
   if (includeStatusChart && data.statusData && data.statusData.length > 0) {
     console.log('Adding status chart...');
+    console.log('Chart metadata:', data.chartMetadata?.statusChart);
     
     // NEW PAGE - LANDSCAPE for chart
     doc.addPage('a4', 'landscape');
     
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
-    doc.text('STATUS DISTRIBUTION', 14, 20);
+    
+    // ✅ USE METADATA FOR TITLE
+    const chartTitle = data.chartMetadata?.statusChart?.title || 'STATUS DISTRIBUTION';
+    doc.text(chartTitle, 14, 20);
 
     try {
-      const chartImage = await generateStatusChartImage(data.statusData);
+      // ✅ PASS METADATA TO CHART GENERATOR
+      const chartImage = await generateStatusChartImage(
+        data.statusData,
+        data.chartMetadata?.statusChart  // ✅ Pass metadata
+      );
       
       if (chartImage) {
         // Landscape page width
@@ -123,7 +132,7 @@ export const buildBOQPdf = async ({ data, settings, contract }) => {
         const chartHeight = (chartWidth / 600) * 400;
         
         doc.addImage(chartImage, 'PNG', 20, 30, chartWidth, chartHeight);
-        console.log('✅ Status chart added (landscape page)');
+        console.log('✅ Status chart added (landscape page) with metadata');
       } else {
         console.warn('⚠️ Chart generation returned null');
         doc.setFontSize(10);
@@ -153,15 +162,37 @@ export const buildBOQPdf = async ({ data, settings, contract }) => {
     doc.text('SECTION PROGRESS', 14, cursorY);
     cursorY += 8;
 
+    // Calculate progress for each section
+    const sectionsWithProgress = data.sections.map(section => {
+      // Get items for this section
+      const sectionItems = data.items?.filter(item => item.section_id === section.id) || [];
+      const totalItems = sectionItems.length;
+      
+      const completedItems = sectionItems.filter(item => {
+        const qtyDone = parseFloat(item.quantity_done) || 0;
+        const qty = parseFloat(item.quantity) || 0;
+        return qty > 0 && qtyDone >= qty;
+      }).length;
+      
+      const progress = totalItems > 0 ? ((completedItems / totalItems) * 100).toFixed(1) : 0;
+      
+      return {
+        ...section,
+        totalItems,
+        completedItems,
+        progress
+      };
+    });
+
     autoTable(doc, {
       startY: cursorY,
       theme: 'striped',
       head: [['Section', 'Total', 'Done', 'Progress']],
-      body: data.sections.map(s => [
+      body: sectionsWithProgress.map(s => [
         `${s.section_number || ''} - ${s.title || ''}`,
         s.totalItems || 0,
         s.completedItems || 0,
-        `${formatNumberMY(s.progress || 0, 1)}%`
+        `${s.progress}%`
       ]),
       styles: { fontSize: 9 },
       headStyles: { fillColor: [59, 130, 246] }
@@ -219,6 +250,7 @@ export const buildBOQPdf = async ({ data, settings, contract }) => {
     for (let i = 1; i <= pageCount; i++) {
       doc.setPage(i);
       const pageHeight = doc.internal.pageSize.getHeight();
+      const currentPageWidth = doc.internal.pageSize.getWidth();
       
       doc.setFontSize(8);
       doc.setFont('helvetica', 'normal');
@@ -228,7 +260,6 @@ export const buildBOQPdf = async ({ data, settings, contract }) => {
       }
       
       if (settings.footer.showPageNumbers) {
-        const currentPageWidth = doc.internal.pageSize.getWidth();
         doc.text(`Page ${i} of ${pageCount}`, currentPageWidth - 14, pageHeight - 10, { align: 'right' });
       }
     }
@@ -240,3 +271,5 @@ export const buildBOQPdf = async ({ data, settings, contract }) => {
 
   return doc;
 };
+
+export default buildBOQPdf;

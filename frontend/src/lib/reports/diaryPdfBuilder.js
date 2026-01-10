@@ -1,5 +1,5 @@
 // frontend/src/lib/reports/diaryPdfBuilder.js
-// Diary Report PDF Builder with charts
+// FIXED VERSION - Correct data structure for manpower chart
 
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -13,17 +13,12 @@ import {
   generateMonthlyProgressChart
 } from '../../utils/reports/chartGenerators';
 
-/**
- * Build Diary Summary Report PDF
- * Structure: Summary → Weather Chart → Manpower Chart → All Diaries
- */
 export const buildDiaryPdf = async ({ data, settings, contract }) => {
   console.log('==========================================');
-  console.log('DIARY PDF BUILDER CALLED');
-  console.log('Data structure:', Object.keys(data));
+  console.log('DIARY PDF BUILDER CALLED (REFACTORED - FIXED)');
+  console.log('Has chartMetadata:', !!data.chartMetadata);
   console.log('==========================================');
 
-  // Start with PORTRAIT
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
@@ -36,7 +31,6 @@ export const buildDiaryPdf = async ({ data, settings, contract }) => {
   doc.setFontSize(16);
   doc.setFont('helvetica', 'bold');
   doc.text('DIARY SUMMARY REPORT', pageWidth / 2, 15, { align: 'center' });
-  console.log('✅ Added DIARY header');
 
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
@@ -54,18 +48,10 @@ export const buildDiaryPdf = async ({ data, settings, contract }) => {
 
   let cursorY = y + 10;
 
-  // Content flags
   const includeSummary = settings.content?.includeSummary !== false;
-  const includeWeatherChart = settings.content?.includeStatusChart !== false; // Using statusChart flag
-  const includeManpowerChart = settings.content?.includeSectionProgress !== false; // Using sectionProgress flag
-  const includeDiariesList = true; // Always show diaries
-
-  console.log('Content flags:', {
-    includeSummary,
-    includeWeatherChart,
-    includeManpowerChart,
-    includeDiariesList
-  });
+  const includeWeatherChart = settings.content?.includeStatusChart !== false;
+  const includeManpowerChart = settings.content?.includeSectionProgress !== false;
+  const includeDiariesList = true;
 
   const stats = data.statistics || {};
 
@@ -73,8 +59,6 @@ export const buildDiaryPdf = async ({ data, settings, contract }) => {
   // PAGE 1: SUMMARY TABLE (PORTRAIT)
   // ===========================================
   if (includeSummary) {
-    console.log('Adding diary summary...');
-    
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
     doc.text('DIARY OVERVIEW', 14, cursorY);
@@ -106,59 +90,65 @@ export const buildDiaryPdf = async ({ data, settings, contract }) => {
   const weatherData = Object.entries(stats.weatherDistribution || {}).map(([name, value]) => ({ name, value }));
   
   if (includeWeatherChart && weatherData.length > 0) {
-    console.log('Adding weather chart...');
+    console.log('Weather data for PDF:', weatherData);
     
-    // NEW PAGE - LANDSCAPE for chart
     doc.addPage('a4', 'landscape');
     
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
-    doc.text('WEATHER DISTRIBUTION', 14, 20);
+    
+    // ✅ USE METADATA TITLE
+    const chartTitle = data.chartMetadata?.weatherChart?.title || 'WEATHER DISTRIBUTION';
+    doc.text(chartTitle, 14, 20);
 
     try {
-      const chartImage = await generateStatusChartImage(weatherData);
+      // ✅ PASS METADATA
+      const chartImage = await generateStatusChartImage(
+        weatherData,
+        data.chartMetadata?.weatherChart
+      );
       
       if (chartImage) {
-        // Landscape page width
         const landscapeWidth = doc.internal.pageSize.getWidth();
         const chartWidth = Math.min(landscapeWidth - 40, 200);
         const chartHeight = (chartWidth / 600) * 400;
         
         doc.addImage(chartImage, 'PNG', 20, 30, chartWidth, chartHeight);
-        console.log('✅ Weather chart added (landscape page)');
-      } else {
-        console.warn('⚠️ Weather chart generation returned null');
-        doc.setFontSize(10);
-        doc.text('Chart could not be generated', 20, 30);
+        console.log('✅ Weather chart added with metadata');
       }
     } catch (error) {
       console.error('❌ Weather chart error:', error);
-      doc.setFontSize(10);
-      doc.text('Error: ' + error.message, 20, 30);
     }
   }
 
   // ===========================================
   // PAGE 3: MANPOWER BAR CHART (LANDSCAPE)
   // ===========================================
+  // ✅ FIXED: Use correct data structure matching HTML
   const manpowerData = Object.entries(data.manpowerSummary || {}).map(([category, info]) => ({
-    month: category,  // Using 'month' field for X-axis compatibility
-    value: parseFloat(info.avgWorkers || 0),
-    count: info.totalWorkers || 0
+    category: category,  // ✅ Matches xAxisKey from metadata
+    avgWorkers: parseFloat(info.avgWorkers || 0),  // ✅ Matches dataset[0].key
+    totalWorkers: info.totalWorkers || 0  // ✅ Matches dataset[1].key
   }));
   
+  console.log('Manpower data for PDF:', manpowerData);
+  
   if (includeManpowerChart && manpowerData.length > 0) {
-    console.log('Adding manpower chart...');
-    
-    // NEW PAGE - LANDSCAPE for chart
     doc.addPage('a4', 'landscape');
     
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
-    doc.text('MANPOWER BY TRADE', 14, 20);
+    
+    // ✅ USE METADATA TITLE
+    const chartTitle = data.chartMetadata?.manpowerChart?.title || 'MANPOWER BY TRADE';
+    doc.text(chartTitle, 14, 20);
 
     try {
-      const chartImage = await generateMonthlyProgressChart(manpowerData);
+      // ✅ PASS METADATA
+      const chartImage = await generateMonthlyProgressChart(
+        manpowerData,
+        data.chartMetadata?.manpowerChart
+      );
       
       if (chartImage) {
         const landscapeWidth = doc.internal.pageSize.getWidth();
@@ -166,16 +156,12 @@ export const buildDiaryPdf = async ({ data, settings, contract }) => {
         const chartHeight = (chartWidth / 700) * 400;
         
         doc.addImage(chartImage, 'PNG', 20, 30, chartWidth, chartHeight);
-        console.log('✅ Manpower chart added (landscape page)');
+        console.log('✅ Manpower chart added with metadata');
       } else {
-        console.warn('⚠️ Manpower chart generation returned null');
-        doc.setFontSize(10);
-        doc.text('Chart could not be generated', 20, 30);
+        console.warn('⚠️ Manpower chart returned null');
       }
     } catch (error) {
       console.error('❌ Manpower chart error:', error);
-      doc.setFontSize(10);
-      doc.text('Error: ' + error.message, 20, 30);
     }
   }
 
@@ -184,12 +170,7 @@ export const buildDiaryPdf = async ({ data, settings, contract }) => {
   // ===========================================
   const diaries = data.diaries || [];
   
-  console.log('Diaries list length:', diaries.length);
-
   if (includeDiariesList && diaries.length > 0) {
-    console.log('Adding diaries list...');
-    
-    // NEW PAGE - PORTRAIT for table
     doc.addPage('a4', 'portrait');
     cursorY = 30;
 
@@ -198,7 +179,6 @@ export const buildDiaryPdf = async ({ data, settings, contract }) => {
     doc.text('ALL DIARIES', 14, cursorY);
     cursorY += 8;
 
-    // Create diaries table
     autoTable(doc, {
       startY: cursorY,
       theme: 'striped',
@@ -212,18 +192,14 @@ export const buildDiaryPdf = async ({ data, settings, contract }) => {
       ]],
       body: diaries.map(diary => [
         formatDateMY(diary.diary_date),
-        diary.weather || '-',
+        diary.weather_conditions || '-',
         diary.temperature ? `${diary.temperature}°C` : '-',
         diary.total_manpower || 0,
         diary.photo_count || 0,
         (diary.status || 'draft').toUpperCase()
       ]),
       styles: { fontSize: 9, cellPadding: 3 },
-      headStyles: { 
-        fillColor: [59, 130, 246],
-        textColor: [255, 255, 255],
-        fontStyle: 'bold'
-      },
+      headStyles: { fillColor: [59, 130, 246] },
       columnStyles: {
         0: { cellWidth: 30 },
         1: { cellWidth: 30 },
@@ -231,9 +207,7 @@ export const buildDiaryPdf = async ({ data, settings, contract }) => {
         3: { cellWidth: 25, halign: 'right' },
         4: { cellWidth: 20, halign: 'right' },
         5: { cellWidth: 30, halign: 'center' }
-      },
-      alternateRowStyles: { fillColor: [250, 250, 250] },
-      margin: { left: 14, right: 14 }
+      }
     });
 
     console.log('✅ Diaries list added');
@@ -244,8 +218,6 @@ export const buildDiaryPdf = async ({ data, settings, contract }) => {
   // ===========================================
   if (settings.footer?.showPageNumbers || settings.footer?.showGeneratedDate) {
     const pageCount = doc.internal.getNumberOfPages();
-    
-    console.log(`Adding footers to ${pageCount} pages...`);
     
     for (let i = 1; i <= pageCount; i++) {
       doc.setPage(i);
@@ -265,10 +237,10 @@ export const buildDiaryPdf = async ({ data, settings, contract }) => {
     }
   }
 
-  const finalPageCount = doc.internal.getNumberOfPages();
-  console.log('✅ DIARY PDF generation complete');
-  console.log(`📄 Total pages: ${finalPageCount}`);
+  console.log('✅ DIARY PDF complete');
   console.log('==========================================');
 
   return doc;
 };
+
+export default buildDiaryPdf;

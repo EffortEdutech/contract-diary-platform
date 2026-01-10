@@ -1,5 +1,5 @@
 // frontend/src/lib/reports/claimsPdfBuilder.js
-// COMPLETE VERSION - With charts like BOQ
+// COMPLETE REFACTORED VERSION - With Chart Metadata Support
 
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -11,17 +11,19 @@ import {
 
 import { 
   generateStatusChartImage,
-  generateMonthlyProgressChart
+  generateDualBarChart
 } from '../../utils/reports/chartGenerators';
 
 /**
  * Build Claims Summary Report PDF
- * COMPLETE: With summary, status chart, monthly trend chart, claims list
+ * ✅ REFACTORED: Uses chartMetadata from reportService
+ * ✅ Uses generateDualBarChart for monthly trend (count + amount)
  */
 export const buildClaimsPdf = async ({ data, settings, contract }) => {
   console.log('==========================================');
-  console.log('CLAIMS PDF BUILDER CALLED (WITH CHARTS)');
-  console.log('Data structure:', Object.keys(data));
+  console.log('CLAIMS PDF BUILDER CALLED (REFACTORED)');
+  console.log('Data keys:', Object.keys(data));
+  console.log('Has chartMetadata:', !!data.chartMetadata);
   console.log('==========================================');
 
   // Start with PORTRAIT
@@ -58,7 +60,7 @@ export const buildClaimsPdf = async ({ data, settings, contract }) => {
   // Content flags
   const includeSummary = settings.content?.includeSummary !== false;
   const includeStatusChart = settings.content?.includeStatusChart !== false;
-  const includeMonthlyChart = settings.content?.includeSectionProgress !== false; // Using this for monthly chart
+  const includeMonthlyChart = settings.content?.includeSectionProgress !== false;
   const includeClaimsList = true; // Always show claims list
 
   console.log('Content flags:', {
@@ -69,7 +71,7 @@ export const buildClaimsPdf = async ({ data, settings, contract }) => {
   });
 
   // ===========================================
-  // PAGE 1: SUMMARY TABLE (PORTRAIT)
+  // SECTION 1: SUMMARY TABLE (PORTRAIT)
   // ===========================================
   if (includeSummary) {
     console.log('Adding summary section...');
@@ -117,20 +119,28 @@ export const buildClaimsPdf = async ({ data, settings, contract }) => {
   }
 
   // ===========================================
-  // PAGE 2: STATUS PIE CHART (LANDSCAPE)
+  // SECTION 2: STATUS PIE CHART (LANDSCAPE)
   // ===========================================
   if (includeStatusChart && data.statusData && data.statusData.length > 0) {
     console.log('Adding status chart...');
+    console.log('Chart metadata:', data.chartMetadata?.statusChart);
     
     // NEW PAGE - LANDSCAPE for chart
     doc.addPage('a4', 'landscape');
     
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
-    doc.text('CLAIMS BY STATUS', 14, 20);
+    
+    // ✅ USE METADATA FOR TITLE
+    const chartTitle = data.chartMetadata?.statusChart?.title || 'CLAIMS BY STATUS';
+    doc.text(chartTitle, 14, 20);
 
     try {
-      const chartImage = await generateStatusChartImage(data.statusData);
+      // ✅ PASS METADATA TO CHART GENERATOR
+      const chartImage = await generateStatusChartImage(
+        data.statusData,
+        data.chartMetadata?.statusChart  // ✅ Pass metadata
+      );
       
       if (chartImage) {
         // Landscape page width
@@ -139,7 +149,7 @@ export const buildClaimsPdf = async ({ data, settings, contract }) => {
         const chartHeight = (chartWidth / 600) * 400;
         
         doc.addImage(chartImage, 'PNG', 20, 30, chartWidth, chartHeight);
-        console.log('✅ Status chart added (landscape page)');
+        console.log('✅ Status chart added (landscape page) with metadata');
       } else {
         console.warn('⚠️ Status chart generation returned null');
         doc.setFontSize(10);
@@ -153,26 +163,28 @@ export const buildClaimsPdf = async ({ data, settings, contract }) => {
   }
 
   // ===========================================
-  // PAGE 3: MONTHLY TREND BAR CHART (LANDSCAPE)
+  // SECTION 3: MONTHLY TREND DUAL BAR CHART (LANDSCAPE)
   // ===========================================
   if (includeMonthlyChart && data.monthlyTrend && data.monthlyTrend.length > 0) {
     console.log('Adding monthly trend chart...');
+    console.log('Chart metadata:', data.chartMetadata?.monthlyTrend);
     
     // NEW PAGE - LANDSCAPE for chart
     doc.addPage('a4', 'landscape');
     
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
-    doc.text('MONTHLY CLAIMS TREND', 14, 20);
+    
+    // ✅ USE METADATA FOR TITLE
+    const chartTitle = data.chartMetadata?.monthlyTrend?.title || 'MONTHLY CLAIMS TREND';
+    doc.text(chartTitle, 14, 20);
 
     try {
-      // Format data for chart
-      const monthlyData = data.monthlyTrend.map(item => ({
-        month: item.month,
-        value: item.amount || item.count || 0
-      }));
-
-      const chartImage = await generateMonthlyProgressChart(monthlyData);
+      // ✅ USE NEW generateDualBarChart WITH METADATA
+      const chartImage = await generateDualBarChart(
+        data.monthlyTrend,
+        data.chartMetadata?.monthlyTrend  // ✅ Pass metadata
+      );
       
       if (chartImage) {
         const landscapeWidth = doc.internal.pageSize.getWidth();
@@ -180,7 +192,7 @@ export const buildClaimsPdf = async ({ data, settings, contract }) => {
         const chartHeight = (chartWidth / 700) * 400;
         
         doc.addImage(chartImage, 'PNG', 20, 30, chartWidth, chartHeight);
-        console.log('✅ Monthly trend chart added (landscape page)');
+        console.log('✅ Monthly trend chart added (landscape page) with dual bars and metadata');
       } else {
         console.warn('⚠️ Monthly chart generation returned null');
         doc.setFontSize(10);
@@ -194,7 +206,7 @@ export const buildClaimsPdf = async ({ data, settings, contract }) => {
   }
 
   // ===========================================
-  // PAGE 4: CLAIMS LIST TABLE (PORTRAIT)
+  // SECTION 4: CLAIMS LIST TABLE (PORTRAIT)
   // ===========================================
   const claimsList = data.allClaims || [];
   
@@ -205,7 +217,7 @@ export const buildClaimsPdf = async ({ data, settings, contract }) => {
     
     // NEW PAGE - PORTRAIT for table
     doc.addPage('a4', 'portrait');
-    cursorY = 30;
+    let cursorY = 30;
 
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
@@ -219,38 +231,31 @@ export const buildClaimsPdf = async ({ data, settings, contract }) => {
       head: [[
         'No.',
         'Title',
-        'Period',
-        'Submitted',
+        'Date',
         'Amount',
         'Status'
       ]],
       body: claimsList.map(claim => [
-        claim.claim_number || '-',
-        claim.claim_title || '-',
-        `${formatDateMY(claim.claim_period_from)} - ${formatDateMY(claim.claim_period_to)}`,
+        claim.claim_number || '',
+        claim.claim_title || '',
         formatDateMY(claim.submission_date),
         formatCurrencyMY(claim.claim_amount || 0),
-        (claim.status || 'draft').toUpperCase()
+        claim.status || ''
       ]),
-      styles: { fontSize: 9, cellPadding: 3 },
-      headStyles: { 
-        fillColor: [59, 130, 246],
-        textColor: [255, 255, 255],
-        fontStyle: 'bold'
-      },
+      styles: { fontSize: 9 },
+      headStyles: { fillColor: [59, 130, 246] },
       columnStyles: {
-        0: { cellWidth: 15, halign: 'center' },
-        1: { cellWidth: 65 },
-        2: { cellWidth: 40 },
-        3: { cellWidth: 25 },
-        4: { cellWidth: 30, halign: 'right' },
-        5: { cellWidth: 20, halign: 'center' }
-      },
-      alternateRowStyles: { fillColor: [250, 250, 250] },
-      margin: { left: 14, right: 14 }
+        0: { cellWidth: 25 },
+        1: { cellWidth: 60 },
+        2: { cellWidth: 25 },
+        3: { cellWidth: 35, halign: 'right' },
+        4: { cellWidth: 25 }
+      }
     });
 
     console.log('✅ Claims list added');
+  } else {
+    console.log('⏭️ Claims list skipped or empty');
   }
 
   // ===========================================
@@ -259,30 +264,29 @@ export const buildClaimsPdf = async ({ data, settings, contract }) => {
   if (settings.footer?.showPageNumbers || settings.footer?.showGeneratedDate) {
     const pageCount = doc.internal.getNumberOfPages();
     
-    console.log(`Adding footers to ${pageCount} pages...`);
-    
     for (let i = 1; i <= pageCount; i++) {
       doc.setPage(i);
-      const currentPageHeight = doc.internal.pageSize.getHeight();
+      const pageHeight = doc.internal.pageSize.getHeight();
       const currentPageWidth = doc.internal.pageSize.getWidth();
       
       doc.setFontSize(8);
       doc.setFont('helvetica', 'normal');
       
       if (settings.footer.showGeneratedDate) {
-        doc.text(`Generated: ${formatDateMY(new Date())}`, 14, currentPageHeight - 10);
+        doc.text(`Generated: ${formatDateMY(new Date())}`, 14, pageHeight - 10);
       }
       
       if (settings.footer.showPageNumbers) {
-        doc.text(`Page ${i} of ${pageCount}`, currentPageWidth - 14, currentPageHeight - 10, { align: 'right' });
+        doc.text(`Page ${i} of ${pageCount}`, currentPageWidth - 14, pageHeight - 10, { align: 'right' });
       }
     }
   }
 
-  const finalPageCount = doc.internal.getNumberOfPages();
   console.log('✅ CLAIMS PDF generation complete');
-  console.log(`📄 Total pages: ${finalPageCount}`);
+  console.log('Total pages:', doc.internal.getNumberOfPages());
   console.log('==========================================');
 
   return doc;
 };
+
+export default buildClaimsPdf;
