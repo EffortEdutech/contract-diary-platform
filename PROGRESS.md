@@ -1,3 +1,5 @@
+**Supabase Project:** contract-diary-prod-v1 (Session 14+)
+**Previous Project:** contract-diary-platform (Session 1-13) - archived
 
 # PROJECT PROGRESS TRACKER  **Last Updated:** 10 January 2026 - End of Session 13  
     

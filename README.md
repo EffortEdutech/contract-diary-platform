@@ -1,3 +1,8 @@
+## Supabase Project
+- **Project Name:** contract-diary-prod-v1
+- **Project URL:** https://ddpuvohhlgocessnpbul.supabase.co
+- **Database:** PostgreSQL
+
 # contract-diary-platform
 Contract Work Diary &amp; Claims Management Platform for Malaysian Construction Industry
 
