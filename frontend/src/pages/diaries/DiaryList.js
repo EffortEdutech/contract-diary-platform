@@ -209,13 +209,20 @@ const DiaryList = () => {
           </div>
           <button
             onClick={() => navigate(`/contracts/${contractId}/diaries/new`)}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition flex items-center"
-          >
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition flex items-center">
             <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
             Create Diary
           </button>
+          {/* NEW: Test v2 Button */}
+          <button
+            onClick={() => navigate(`/contracts/${contractId}/diaries/new-v2`)}
+            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg">
+            Create Diary v2 (Offline) 🆕
+          </button>
+
+
         </div>
       </div>
 

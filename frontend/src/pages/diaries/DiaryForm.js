@@ -507,7 +507,7 @@ const DiaryForm = () => {
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Header */}
+      {/* Header */}   
       <div className="mb-6">
         <Breadcrumb items={breadcrumbItems} />
         <div className="flex items-center justify-between">

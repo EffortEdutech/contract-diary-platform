@@ -14,6 +14,8 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import OfflineSyncStatus from './common/OfflineSyncStatus';
+import OfflineIndicator from'./common/OfflineIndicator';
 
 function Layout({ children }) {
   const { user, signOut } = useAuth();
@@ -120,8 +122,11 @@ function Layout({ children }) {
                 className="px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
                 title="Sign Out"
               >
-                Sign Out
+                Sign Out 
               </button>
+              <div className="flex items-center gap-3">
+                <OfflineIndicator />
+              </div>              
             </div>
           </div>
         </div>
@@ -138,6 +143,7 @@ function Layout({ children }) {
           </p>
         </div>
       </footer>
+      <OfflineSyncStatus />
     </div>
   );
 }

@@ -25,6 +25,7 @@ import BOQDetail from './pages/boq/BOQDetail';
 import DiaryList from './pages/diaries/DiaryList';
 import DiaryForm from './pages/diaries/DiaryForm';
 import DiaryDetail from './pages/diaries/DiaryDetail';
+import DiaryFormOffline from './pages/diaries/DiaryFormOffline';  // New
 
 // Claims components
 import ClaimList from './pages/claims/ClaimList';
@@ -131,6 +132,16 @@ function App() {
             }
           />
           <Route
+            path="/contracts/:contractId/diaries/new-v2"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <DiaryFormOffline  />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/contracts/:contractId/diaries/:diaryId"
             element={
               <ProtectedRoute>
@@ -145,7 +156,7 @@ function App() {
             element={
               <ProtectedRoute>
                 <Layout>
-                  <DiaryForm />
+                  <DiaryFormOffline />
                 </Layout>
               </ProtectedRoute>
             }
