@@ -33,12 +33,16 @@ import {
   DIARY_STATUS
 } from '../../services/diaryService';
 import PhotoUpload from '../../components/diary/PhotoUpload';
+import { useAuth } from '../../contexts/AuthContext';
+import { uploadWeatherPhoto } from '../../services/diaryPhotoService';
 
 const DiaryFormOffline = () => {
   const { contractId, diaryId } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const isEditMode = !!diaryId;
 
+  
   // State
   const [contract, setContract] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -46,6 +50,9 @@ const DiaryFormOffline = () => {
   const [error, setError] = useState(null);
   const [showConfirm, setShowConfirm] = useState(false);
   const [pendingDelete, setPendingDelete] = useState(null);
+  // ✅ ADD these two new states
+  const [weatherPendingPhotos, setWeatherPendingPhotos] = useState({});
+  const [observationIdMapping, setObservationIdMapping] = useState({});
 
   // Form data
   const [formData, setFormData] = useState({
@@ -53,8 +60,11 @@ const DiaryFormOffline = () => {
     weather_conditions: '',
     site_conditions: '',
     work_progress: '',
-    general_remarks: ''
+    general_remarks: '',
+    status: 'draft' 
   });
+
+  const isDraft = formData.status === 'draft';
 
   // Dynamic arrays
   const [manpower, setManpower] = useState({
@@ -178,7 +188,8 @@ const DiaryFormOffline = () => {
         weather_conditions: diary.weather_conditions || '',
         site_conditions: diary.site_conditions || '',
         work_progress: diary.work_progress || '',
-        general_remarks: diary.general_remarks || ''
+        general_remarks: diary.general_remarks || '',
+        status: diary.status || 'draft'
       });
 
       // FIX: Handle manpower data structure properly
@@ -233,12 +244,22 @@ const DiaryFormOffline = () => {
       }
 
       // Load weather observations
-      const { data: weatherData } = await supabase
+      const { data: weatherData, error: weatherError } = await supabase
         .from('weather_observations')
         .select('*')
         .eq('diary_id', diaryId)
         .order('observation_time');
-      setWeatherObservations(weatherData || []);
+
+      if (weatherError) {
+        console.error('Error loading weather observations:', weatherError);
+        setWeatherObservations([]);
+      } else if (weatherData && weatherData.length > 0) {
+        console.log(`✅ Loaded ${weatherData.length} weather observations`);
+        setWeatherObservations(weatherData);
+      } else {
+        console.log('No weather observations found');
+        setWeatherObservations([]);
+      }
 
       // Load photos
       const { data: photoData } = await supabase
@@ -279,7 +300,6 @@ const DiaryFormOffline = () => {
         console.log('No inspection/test requests found');
         setInspectionTestRequests([]);
       }
-
 
       // ✅ ADD THIS - Load work activities
       const { data: activitiesData, error: activitiesError } = await supabase
@@ -324,25 +344,46 @@ const DiaryFormOffline = () => {
   };
 
   // ============================================
-    // PHOTO RELOAD FUNCTION
-    // ============================================
+  // PHOTO RELOAD FUNCTION
+  // ============================================
+  
+  // Add this function if it doesn't exist
+  const loadPhotos = async () => {
+    if (!diaryId) return;
     
-    const loadPhotos = async () => {
-      if (!diaryId) return;
+    try {
+      const { data: photoData } = await supabase
+        .from('diary_photos')
+        .select('*')
+        .eq('diary_id', diaryId)
+        .order('uploaded_at');
+      setPhotos(photoData || []);
+      console.log(`✅ Refreshed ${photoData?.length || 0} photos`);
+    } catch (error) {
+      console.error('Error loading photos:', error);
+    }
+  };
+
+  // Refresh all photos (weather + general)
+  const refreshAllPhotos = async () => {
+    if (!diaryId) return;
+    
+    try {
+      console.log('🔄 Refreshing all photos...');
       
-      try {
-        const { data, error } = await supabase
-          .from('diary_photos')
-          .select('*')
-          .eq('diary_id', diaryId)
-          .order('display_order');
-        
-        if (error) throw error;
-        setPhotos(data || []);
-      } catch (err) {
-        console.error('Error loading photos:', err);
-      }
-    };
+      // Reload main diary photos
+      const { data: photoData } = await supabase
+        .from('diary_photos')
+        .select('*')
+        .eq('diary_id', diaryId)
+        .order('uploaded_at');
+      setPhotos(photoData || []);
+      
+      console.log(`✅ Refreshed ${photoData?.length || 0} total photos`);
+    } catch (error) {
+      console.error('Error refreshing photos:', error);
+    }
+  };
 
   // ============================================
   // FORM HANDLERS
@@ -644,24 +685,150 @@ const DiaryFormOffline = () => {
     setShowWeatherModal(true);
   };
 
-  const handleSaveWeather = (weatherData) => {
-    if (editingWeather) {
-      setWeatherObservations(prev => prev.map(obs =>
-        obs.id === editingWeather.id ? { ...obs, ...weatherData } : obs
-      ));
-    } else {
-      setWeatherObservations(prev => [...prev, {
-        id: `weather_${Date.now()}`,
-        ...weatherData
-      }]);
+  const handleSaveWeather = async (weatherData) => {
+    try {
+      if (editingWeather && editingWeather.id) {
+        // ============================================
+        // EDITING EXISTING OBSERVATION
+        // ============================================
+        
+        // Check if observation has a real UUID (from database)
+        const isRealObservation = editingWeather.id && 
+                                  !editingWeather.id.startsWith('weather_') &&
+                                  editingWeather.id.length === 36; // UUID length
+
+        if (isRealObservation) {
+          // UPDATE existing observation in database
+          const { error } = await supabase
+            .from('weather_observations')
+            .update({
+              observation_time: weatherData.observation_time,
+              weather_condition: weatherData.weather_condition,
+              temperature: weatherData.temperature,
+              humidity: weatherData.humidity,
+              rainfall_mm: weatherData.rainfall_mm,
+              wind_speed_kmh: weatherData.wind_speed_kmh,
+              work_stoppage: weatherData.work_stoppage,
+              work_stoppage_duration_minutes: weatherData.work_stoppage_duration_minutes,
+              affected_activities: weatherData.affected_activities,
+              remarks: weatherData.remarks,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', editingWeather.id);
+
+          if (error) throw error;
+
+          // Update local state
+          setWeatherObservations(prev => prev.map(obs =>
+            obs.id === editingWeather.id ? { ...obs, ...weatherData, id: editingWeather.id } : obs
+          ));
+
+          console.log('✅ Weather observation updated in database');
+
+          // Return observation with ID for photo upload
+          return { 
+            id: editingWeather.id, 
+            ...weatherData 
+          };
+          
+        } else {
+          // Temp observation (diary not saved yet) - just update state
+          setWeatherObservations(prev => prev.map(obs =>
+            obs.id === editingWeather.id ? { ...obs, ...weatherData } : obs
+          ));
+          
+          return { id: editingWeather.id, ...weatherData };
+        }
+        
+      } else {
+        // ============================================
+        // CREATING NEW OBSERVATION
+        // ============================================
+        
+        if (!diaryId) {
+          // Diary not saved yet - create temporary observation
+          const tempId = `weather_${Date.now()}`;
+          const newObs = {
+            id: tempId,
+            ...weatherData
+          };
+          
+          setWeatherObservations(prev => [...prev, newObs]);
+          
+          console.log('⚠️ Diary not saved - weather observation stored temporarily');
+          alert('Please save the diary first before uploading photos to weather observations');
+          
+          return newObs;
+        }
+
+        // Diary exists - INSERT to database
+        const { data: newObs, error } = await supabase
+          .from('weather_observations')
+          .insert({
+            diary_id: diaryId,
+            contract_id: contractId,
+            observation_time: weatherData.observation_time,
+            weather_condition: weatherData.weather_condition,
+            temperature: weatherData.temperature,
+            humidity: weatherData.humidity,
+            rainfall_mm: weatherData.rainfall_mm,
+            wind_speed_kmh: weatherData.wind_speed_kmh,
+            work_stoppage: weatherData.work_stoppage,
+            work_stoppage_duration_minutes: weatherData.work_stoppage_duration_minutes,
+            affected_activities: weatherData.affected_activities,
+            remarks: weatherData.remarks,
+            recorded_by: user.id,
+            recorded_by_name: user.email || user.id
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        // Add to local state with real database ID
+        setWeatherObservations(prev => [...prev, newObs]);
+
+        console.log('✅ Weather observation created in database:', newObs.id);
+
+        // Return observation with database ID for photo upload
+        return newObs;
+      }
+      
+    } catch (error) {
+      console.error('Error saving weather observation:', error);
+      alert('Failed to save weather observation: ' + error.message);
+      throw error; // Re-throw so modal knows save failed
     }
-    setShowWeatherModal(false);
-    setEditingWeather(null);
   };
 
-  const handleDeleteWeather = (weatherId) => {
-    setPendingDelete(weatherId);
-    setShowConfirm(true);
+
+
+
+
+
+
+
+  const handleDeleteWeather = async (observationId) => {
+    if (!window.confirm('Delete this weather observation?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('weather_observations')
+        .delete()
+        .eq('id', observationId);
+
+      if (error) throw error;
+
+      // Remove from state
+      setWeatherObservations(prev => 
+        prev.filter(obs => obs.id !== observationId)
+      );
+      
+      alert('Weather observation deleted');
+    } catch (error) {
+      console.error('Error deleting weather observation:', error);
+      alert('Failed to delete weather observation');
+    }
   };
 
   const confirmDeleteWeather = () => {
@@ -677,6 +844,82 @@ const DiaryFormOffline = () => {
     setShowConfirm(false);
   };
 
+// ============================================
+  // WEATHER PENDING PHOTOS HANDLERS
+  // ============================================
+
+  const handleAddWeatherPhotos = (observationId, files) => {
+    const fileArray = Array.from(files);
+    setWeatherPendingPhotos(prev => ({
+      ...prev,
+      [observationId]: [...(prev[observationId] || []), ...fileArray]
+    }));
+    console.log(`✅ Added ${fileArray.length} pending photos for observation:`, observationId);
+  };
+
+  const handleRemovePendingWeatherPhoto = (observationId, photoIndex) => {
+    setWeatherPendingPhotos(prev => ({
+      ...prev,
+      [observationId]: (prev[observationId] || []).filter((_, i) => i !== photoIndex)
+    }));
+    console.log('✅ Removed pending photo at index:', photoIndex);
+  };
+
+  const getAllPhotosForObservation = (observationId) => {
+    const realId = observationIdMapping[observationId] || observationId;
+    return weatherPendingPhotos[observationId] || weatherPendingPhotos[realId] || [];
+  };
+
+  const formatWeatherCondition = (condition) => {
+    return condition
+      .split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
+
+  const uploadAllPendingWeatherPhotos = async (diaryId, idMapping) => {
+    const totalPending = Object.values(weatherPendingPhotos)
+      .reduce((sum, photos) => sum + photos.length, 0);
+    
+    if (totalPending === 0) {
+      console.log('No pending weather photos to upload');
+      return;
+    }
+    
+    console.log(`📸 Uploading ${totalPending} pending weather photos...`);
+    
+    let uploadedCount = 0;
+    
+    for (const [observationId, files] of Object.entries(weatherPendingPhotos)) {
+      const realObservationId = idMapping[observationId] || observationId;
+      const observation = weatherObservations.find(obs => 
+        obs.id === observationId || obs.id === realObservationId
+      );
+      
+      console.log(`Uploading ${files.length} photos for observation:`, realObservationId);
+      
+      for (const file of files) {
+        try {
+          const time = observation?.observation_time || 'Unknown time';
+          const condition = observation?.weather_condition 
+            ? formatWeatherCondition(observation.weather_condition)
+            : 'Weather event';
+          const autoCaption = `Weather ${time} - ${condition}`;
+          
+          await uploadWeatherPhoto(diaryId, realObservationId, file, autoCaption, user.id);
+          
+          uploadedCount++;
+          console.log(`✅ Uploaded ${uploadedCount}/${totalPending}: ${file.name}`);
+          
+        } catch (error) {
+          console.error(`❌ Failed to upload ${file.name}:`, error);
+        }
+      }
+    }
+    
+    console.log(`✅ Uploaded ${uploadedCount}/${totalPending} weather photos`);
+  };
+
   // ============================================
   // PHOTO HANDLERS - FIXED
   // ============================================
@@ -684,6 +927,15 @@ const DiaryFormOffline = () => {
   const handlePhotoFileSelected = (files) => {
     // Store files temporarily - will upload after diary is saved
     setPendingPhotos(prev => [...prev, ...files]);
+  };
+
+  // ✅ ADD THIS NEW FUNCTION:
+  const handlePhotosUploaded = (results) => {
+    console.log('Photos uploaded:', results);
+    // Refresh photos list
+    if (results.successful.length > 0) {
+      refreshAllPhotos();
+    }
   };
 
   const handleRemovePendingPhoto = (index) => {
@@ -696,10 +948,19 @@ const DiaryFormOffline = () => {
 
   // Upload pending photos after diary is created
   const uploadPendingPhotos = async (savedDiaryId) => {
-    if (pendingPhotos.length === 0) return;
+    if (pendingPhotos.length === 0) {
+      console.log('No pending general photos to upload');
+      return;
+    }
 
     try {
+      console.log(`📸 Uploading ${pendingPhotos.length} pending general photos...`);
+      
+      // Import the uploadPhotos function
       const { uploadPhotos } = await import('../../services/diaryPhotoService');
+      
+      // Get user
+      const { data: { user } } = await supabase.auth.getUser();
       
       // Convert File objects to proper format
       const photoFiles = pendingPhotos.map(file => ({
@@ -707,8 +968,18 @@ const DiaryFormOffline = () => {
         caption: file.caption || ''
       }));
 
-      await uploadPhotos(savedDiaryId, contractId, photoFiles);
-      setPendingPhotos([]); // Clear pending photos
+      // Upload all photos
+      const results = await uploadPhotos(savedDiaryId, contractId, photoFiles, user.id);
+      
+      console.log(`✅ Uploaded ${results.successful.length}/${pendingPhotos.length} general photos`);
+      
+      if (results.failed.length > 0) {
+        console.warn(`❌ Failed to upload ${results.failed.length} photos:`, results.failed);
+      }
+      
+      // Clear pending photos
+      setPendingPhotos([]);
+      
     } catch (err) {
       console.error('Error uploading photos:', err);
       alert(`Failed to upload some photos: ${err.message}`);
@@ -750,26 +1021,28 @@ const DiaryFormOffline = () => {
         savedDiary = await createDiary(diaryData);
       }
 
-      // Now we have a diary ID - upload pending photos
-      if (!isEditMode && pendingPhotos.length > 0) {
+      // Upload pending general photos (both create and edit modes)
+      if (pendingPhotos.length > 0) {
         await uploadPendingPhotos(savedDiary.id);
       }
 
-      // Save weather observations - DELETE OLD, INSERT NEW
+      // ============================================
+      // Save weather observations & create ID mapping
+      // ============================================
+      const newMapping = {};
+
       if (isEditMode) {
-        // ✅ DELETE all old weather observations for this diary
         await supabase
           .from('weather_observations')
           .delete()
           .eq('diary_id', savedDiary.id);
       }
 
-      // ✅ INSERT all current weather observations
+      // Insert all observations and track ID mapping
       if (weatherObservations.length > 0) {
         for (const weather of weatherObservations) {
           if (weather.observation_time && weather.weather_condition) {
             const weatherRecord = {
-              // ❌ DON'T include 'id' - let database generate it
               diary_id: savedDiary.id,
               contract_id: contractId,
               observation_time: weather.observation_time,
@@ -789,16 +1062,51 @@ const DiaryFormOffline = () => {
               recorded_by_name: user.email || 'Site Supervisor'
             };
 
-            const { error: weatherError } = await supabase
+            const { data: savedObs, error: weatherError } = await supabase
               .from('weather_observations')
-              .insert(weatherRecord);  // ✅ INSERT, not upsert
+              .insert(weatherRecord)
+              .select()
+              .single();
 
             if (weatherError) {
               console.error('Error saving weather observation:', weatherError);
+              continue;
+            }
+
+            // ✅ Map temp ID → real UUID
+            if (weather.id ) {
+              newMapping[weather.id] = savedObs.id;
+              console.log(`Mapped: ${weather.id} → ${savedObs.id}`);
             }
           }
         }
       }
+
+      // Update ID mapping state
+      if (Object.keys(newMapping).length > 0) {
+        setObservationIdMapping(prev => ({ ...prev, ...newMapping }));
+      }
+
+      // ============================================
+      // ✅ Upload ALL pending weather photos
+      // ============================================
+      await uploadAllPendingWeatherPhotos(savedDiary.id, newMapping);
+
+      // ============================================
+      // ✅ Clear pending weather photos queue
+      // ============================================
+      setWeatherPendingPhotos({});
+      console.log('✅ Cleared pending weather photos queue');
+
+
+      // ✅ FIX: Delete old work activities in edit mode
+      if (isEditMode) {
+        await supabase
+          .from('diary_work_activities')
+          .delete()
+          .eq('diary_id', savedDiary.id);
+      }
+
 
       // Save work activities - ENHANCED ERROR HANDLING
       if (workActivities.length > 0) {
@@ -909,7 +1217,14 @@ const DiaryFormOffline = () => {
         }
       }
 
-      // Save inspection/test requests
+      // Save inspection/test requests - DELETE OLD, INSERT NEW
+      if (isEditMode) {
+        await supabase
+          .from('inspection_test_requests')
+          .delete()
+          .eq('diary_id', savedDiary.id);
+      }
+
       if (inspectionTestRequests.length > 0) {
         for (const req of inspectionTestRequests) {
           await supabase
@@ -1073,14 +1388,57 @@ const DiaryFormOffline = () => {
         </div>
 
         {/* Weather Tracking */}
-        <WeatherObservationCard
-          observations={weatherObservations}
-          onAdd={handleAddWeather}
-          onEdit={handleEditWeather}
-          onDelete={handleDeleteWeather}
-          diaryDate={formData.diary_date}
-          isOffline={false}
-        />
+        {/* Weather Observations Section */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-lg font-semibold text-gray-900">
+              ⛈️ Weather Observations
+            </h3>
+            {isDraft && (
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingWeather(null);
+                  setShowWeatherModal(true);
+                }}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
+              >
+                + Add Weather Observation
+              </button>
+            )}
+          </div>
+
+          {/* Display weather observations */}
+          {weatherObservations.length === 0 ? (
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center">
+              <p className="text-gray-500 text-sm">
+                No weather observations recorded
+              </p>
+              {isDraft && (
+                <p className="text-gray-400 text-xs mt-1">
+                  Click "Add Weather Observation" to record weather events
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {weatherObservations.map(observation => (
+                <WeatherObservationCard
+                  key={observation.id}
+                  observation={observation}
+                  diaryId={diaryId}
+                  onEdit={handleEditWeather}
+                  onDelete={handleDeleteWeather}
+                  userId={user?.id}
+                  isDraft={formData.status === 'draft'}
+                  pendingPhotos={getAllPhotosForObservation(observation.id)}
+                  onAddPhotos={handleAddWeatherPhotos}
+                  onRemovePendingPhoto={handleRemovePendingWeatherPhoto}
+                />
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* Site Conditions */}
         <div>
@@ -1867,24 +2225,13 @@ const DiaryFormOffline = () => {
                 </h3>
                 
                 {/* Photo Upload Component */}
-                <PhotoUpload
-                  diaryId={diaryId}
-                  onUploadComplete={(results) => {
-                    console.log('Photos uploaded:', results);
-                    
-                    // Show success message
-                    if (results.successful.length > 0) {
-                      const message = results.failed.length > 0
-                        ? `${results.successful.length} photo(s) uploaded successfully. ${results.failed.length} failed.`
-                        : `${results.successful.length} photo(s) uploaded successfully!`;
-                      
-                      alert(message);
-                      
-                      // Reload photos
-                      loadPhotos();
-                    }
-                  }}
-                />
+                  <PhotoUpload
+                    diaryId={diaryId}
+                    contractId={contractId}
+                    onUploadComplete={handlePhotosUploaded}
+                    onFilesSelected={handlePhotoFileSelected}
+                    pendingFiles={pendingPhotos}
+                  />
               </div>
             </div>
           )}
@@ -1967,8 +2314,12 @@ const DiaryFormOffline = () => {
           observation={editingWeather}
           diaryId={isEditMode ? diaryId : null}
           diaryDate={formData.diary_date}
+          userId={user?.id}
           isOffline={false}
           onSave={handleSaveWeather}
+          pendingPhotos={editingWeather ? getAllPhotosForObservation(editingWeather.id) : []}
+          onAddPhotos={handleAddWeatherPhotos}
+          onRemovePendingPhoto={handleRemovePendingWeatherPhoto}
           onClose={() => {
             setShowWeatherModal(false);
             setEditingWeather(null);

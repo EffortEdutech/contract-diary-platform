@@ -16,9 +16,17 @@
  */
 
 import React, { useState, useRef } from 'react';
-import { uploadPhoto, uploadMultiplePhotos, PHOTO_CONFIG } from '../../services/diaryPhotoService';
+import { uploadPhoto, uploadMultiplePhotos, uploadPhotos, PHOTO_CONFIG } from '../../services/diaryPhotoService';
+import { supabase } from '../../lib/supabase';
 
-const PhotoUpload = ({ diaryId, onUploadComplete, disabled = false }) => {
+const PhotoUpload = ({ 
+  diaryId, 
+  contractId, 
+  onUploadComplete, 
+  disabled = false,
+  onFilesSelected,  // NEW: callback when files selected
+  pendingFiles = [] // NEW: show pending files
+}) => {
   // ============================================
   // STATE MANAGEMENT
   // ============================================
@@ -37,13 +45,6 @@ const PhotoUpload = ({ diaryId, onUploadComplete, disabled = false }) => {
   // FILE SELECTION HANDLERS
   // ============================================
 
-  /**
-   * Handle file selection from input
-   */
-  const handleFileSelect = (e) => {
-    const files = Array.from(e.target.files);
-    processFiles(files);
-  };
 
   /**
    * Handle drag over event
@@ -151,6 +152,58 @@ const PhotoUpload = ({ diaryId, onUploadComplete, disabled = false }) => {
 
     Promise.all(previewPromises).then(setPreviews);
   };
+
+  const handleFileSelect = (e) => {
+    setError(null);
+    const files = Array.from(e.target.files);
+    
+    // Filter image files only
+    const imageFiles = files.filter(file => file.type.startsWith('image/'));
+    const nonImageFiles = files.filter(file => !file.type.startsWith('image/'));
+    
+    // Show warning for non-image files
+    if (nonImageFiles.length > 0) {
+      setError(`${nonImageFiles.length} non-image file(s) skipped. Only images are allowed.`);
+    }
+    
+    if (imageFiles.length === 0) {
+      setError('Please select image files only (JPG, PNG, WEBP)');
+      return;
+    }
+
+    // Validate file sizes
+    const validFiles = [];
+    const oversizedFiles = [];
+    const maxSizeMB = PHOTO_CONFIG.MAX_FILE_SIZE / 1024 / 1024;
+
+    imageFiles.forEach(file => {
+      if (file.size > PHOTO_CONFIG.MAX_FILE_SIZE) {
+        oversizedFiles.push(file.name);
+      } else {
+        validFiles.push(file);
+      }
+    });
+    
+    if (oversizedFiles.length > 0) {
+      setError(`${oversizedFiles.length} file(s) exceed ${maxSizeMB}MB limit: ${oversizedFiles.slice(0, 3).join(', ')}${oversizedFiles.length > 3 ? '...' : ''}`);
+      if (validFiles.length === 0) return;
+    }
+
+    // Check total file count
+    if (validFiles.length > 20) {
+      setError('Maximum 20 photos can be uploaded at once');
+      return;
+    }
+    
+    setSelectedFiles(validFiles);
+    generatePreviews(validFiles);
+    
+    // ✅ NEW: Notify parent about selected files
+    if (onFilesSelected && validFiles.length > 0) {
+      onFilesSelected(validFiles);
+    }
+  };
+
 
   /**
    * Format file size for display
@@ -268,67 +321,58 @@ const PhotoUpload = ({ diaryId, onUploadComplete, disabled = false }) => {
    * Handle upload button click
    */
   const handleUpload = async () => {
-    if (selectedFiles.length === 0) return;
+    if (selectedFiles.length === 0) {
+      alert('Please select at least one photo');
+      return;
+    }
 
     setUploading(true);
-    setError(null);
-    setUploadProgress({ current: 0, total: selectedFiles.length });
 
     try {
-      // Optional: Compress images before upload
-      setCompressing(true);
-      const compressedFiles = await Promise.all(
-        selectedFiles.map(file => compressImage(file))
-      );
-      setCompressing(false);
+      // Get user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
 
-      // Upload files with captions
-      const uploadPromises = compressedFiles.map(async (file, index) => {
-        const preview = previews[index];
-        const caption = captions[preview.id] || null;
-        
-        try {
-          const result = await uploadPhoto(diaryId, file, caption);
-          setUploadProgress(prev => ({ ...prev, current: prev.current + 1 }));
-          return { success: true, file: file.name, result };
-        } catch (error) {
-          setUploadProgress(prev => ({ ...prev, current: prev.current + 1 }));
-          return { success: false, file: file.name, error: error.message };
+      // ✅ Get contractId from diary if not provided as prop
+      let contractIdToUse = contractId;
+      if (!contractIdToUse) {
+        const { data: diary } = await supabase
+          .from('diaries')
+          .select('contract_id')
+          .eq('id', diaryId)
+          .single();
+        contractIdToUse = diary.contract_id;
+      }
+
+      // Prepare photo files
+      const photoFiles = selectedFiles.map((fileObj, index) => ({
+        file: fileObj.file,
+        caption: captions[index] || ''
+      }));
+
+      // Upload
+      const results = await uploadPhotos(diaryId, contractIdToUse, photoFiles, user.id);
+
+      console.log('Upload results:', results);
+
+      if (results.successful.length > 0) {
+        setSelectedFiles([]);
+        setCaptions([]);
+        if (onUploadComplete) {
+          onUploadComplete(results);
         }
-      });
-
-      const results = await Promise.all(uploadPromises);
-      
-      const successful = results.filter(r => r.success);
-      const failed = results.filter(r => !r.success);
-
-      console.log('Upload results:', { successful, failed });
-
-      if (failed.length > 0) {
-        const failedNames = failed.map(f => f.file).slice(0, 3).join(', ');
-        setError(`${failed.length} photo(s) failed to upload: ${failedNames}${failed.length > 3 ? '...' : ''}`);
       }
 
-      // Clear selection on success
-      if (successful.length > 0) {
-        clearSelection();
+      if (results.failed.length > 0) {
+        alert(`${results.failed.length} photo(s) failed to upload: ${results.failed.join(', ')}`);
       }
-      
-      // Notify parent component
-      if (onUploadComplete) {
-        onUploadComplete({
-          successful: successful.map(s => ({ file: s.file, photo: s.result })),
-          failed: failed.map(f => ({ file: f.file, error: f.error }))
-        });
-      }
-
-    } catch (err) {
-      console.error('Upload error:', err);
-      setError(err.message || 'Failed to upload photos');
+    } catch (error) {
+      console.error('Upload error:', error);
+      alert('Failed to upload photos: ' + error.message);
     } finally {
       setUploading(false);
-      setCompressing(false);
-      setUploadProgress(null);
     }
   };
 
@@ -403,6 +447,42 @@ const PhotoUpload = ({ diaryId, onUploadComplete, disabled = false }) => {
           <span>{error}</span>
         </div>
       )}
+
+      {/* ✅ ========== ADD THIS NEW SECTION HERE ========== */}
+      {/* Pending Photos (Not Yet Uploaded) */}
+      {pendingFiles.length > 0 && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+          <div className="flex items-center justify-between mb-2">
+            <h4 className="text-sm font-medium text-blue-900">
+              📸 Pending Photos
+            </h4>
+            <span className="text-xs text-blue-600 font-medium">
+              {pendingFiles.length} photo(s) • Will upload on save
+            </span>
+          </div>
+          
+          <div className="grid grid-cols-4 gap-2">
+            {pendingFiles.map((file, index) => (
+              <div key={index} className="relative group">
+                <div className="w-12 spect-square rounded-lg  bg-blue-100 border-2 border-blue-300 flex items-center justify-center">
+                  <svg className="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <div className="absolute top-1 right-1">
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-500 text-white">
+                    Pending
+                  </span>
+                </div>
+                <p className="text-xs text-gray-600 mt-1 truncate">
+                  {file.name}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
 
       {/* Preview Section */}
       {previews.length > 0 && (
@@ -516,39 +596,7 @@ const PhotoUpload = ({ diaryId, onUploadComplete, disabled = false }) => {
             </div>
           )}
 
-          {/* Upload Button */}
-          <div className="flex gap-3">
-            <button
-              onClick={handleUpload}
-              disabled={uploading || disabled || compressing}
-              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-            >
-              {compressing ? (
-                <>
-                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                  Compressing...
-                </>
-              ) : uploading ? (
-                <>
-                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                  Uploading...
-                </>
-              ) : (
-                <>
-                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                  </svg>
-                  Upload {previews.length} Photo{previews.length !== 1 ? 's' : ''}
-                </>
-              )}
-            </button>
-          </div>
+
         </div>
       )}
     </div>

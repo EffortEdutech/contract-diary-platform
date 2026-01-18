@@ -1,23 +1,178 @@
 // ============================================================================
-// WEATHER OBSERVATION CARD - Missing Component from Phase 2
+// WEATHEROBSERVATIONCARD.JS - COMPLETE REDESIGN
 // ============================================================================
-// File: frontend/src/components/diary/WeatherObservationCard.js
-// Purpose: Display multiple weather observations per day
-// Note: This component was referenced but never created - NOW FIXED!
+// Shows BOTH existing photos (from database) AND pending photos (to be uploaded)
 // ============================================================================
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { getWeatherPhotos, deletePhoto } from '../../services/diaryPhotoService';
 
 const WeatherObservationCard = ({ 
-  observations, 
-  onAdd, 
-  onEdit, 
-  onDelete,
+  observation,
   diaryId,
-  diaryDate,
-  isOffline 
+  onEdit,
+  onDelete,
+  userId,
+  isDraft = true,
+  
+  // ✅ NEW PROPS for pending photos
+  pendingPhotos = [],           // File[] from parent state
+  onAddPhotos,                  // (observationId, files) => void
+  onRemovePendingPhoto          // (observationId, photoIndex) => void
 }) => {
-  // Weather condition icons
+  
+  // ============================================
+  // STATE MANAGEMENT
+  // ============================================
+  
+  // Existing photos from database
+  const [existingPhotos, setExistingPhotos] = useState([]);
+  const [loadingExisting, setLoadingExisting] = useState(false);
+  
+  // UI states
+  const [expandPhotos, setExpandPhotos] = useState(false);
+  const [selectedPhoto, setSelectedPhoto] = useState(null);
+  const [deletingPhotoId, setDeletingPhotoId] = useState(null);
+
+  // ============================================
+  // LOAD EXISTING PHOTOS ON MOUNT
+  // ============================================
+  
+  useEffect(() => {
+    if (observation?.id && !observation.id.startsWith('weather_')) {
+      loadExistingPhotos();
+    }
+  }, [observation?.id]);
+
+  const loadExistingPhotos = async () => {
+    if (!observation?.id || observation.id.startsWith('weather_')) {
+      // Temp observation - no existing photos in database
+      setExistingPhotos([]);
+      return;
+    }
+    
+    try {
+      setLoadingExisting(true);
+      const photos = await getWeatherPhotos(observation.id);
+      setExistingPhotos(photos);
+      console.log(`✅ Loaded ${photos.length} existing photos for observation:`, observation.id);
+    } catch (error) {
+      console.error('Error loading existing photos:', error);
+      setExistingPhotos([]);
+    } finally {
+      setLoadingExisting(false);
+    }
+  };
+
+  // ============================================
+  // VALIDATION
+  // ============================================
+  
+  if (!observation || !observation.id) {
+    return (
+      <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-4">
+        <p className="text-yellow-800 text-sm">
+          ⚠️ Weather observation data not available
+        </p>
+      </div>
+    );
+  }
+
+  // ============================================
+  // PHOTO HANDLERS
+  // ============================================
+  
+  const handleFileSelect = (e) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    
+    if (onAddPhotos) {
+      onAddPhotos(observation.id, files);
+    }
+    
+    // Reset input
+    e.target.value = '';
+  };
+
+  const handleDeleteExisting = async (photoId) => {
+    if (!window.confirm('Delete this photo from database?')) return;
+    
+    try {
+      setDeletingPhotoId(photoId);
+      await deletePhoto(photoId);
+      
+      // Reload existing photos
+      await loadExistingPhotos();
+      
+      console.log('✅ Deleted existing photo:', photoId);
+    } catch (error) {
+      console.error('Error deleting photo:', error);
+      alert('Failed to delete photo: ' + error.message);
+    } finally {
+      setDeletingPhotoId(null);
+    }
+  };
+
+  const handleDeletePending = (photoIndex) => {
+    if (!window.confirm('Remove this pending photo?')) return;
+    
+    if (onRemovePendingPhoto) {
+      onRemovePendingPhoto(observation.id, photoIndex);
+    }
+  };
+
+  // ============================================
+  // COMBINE PHOTOS FOR DISPLAY
+  // ============================================
+  
+  // Transform existing photos
+  const existingPhotoItems = existingPhotos.map(photo => ({
+    type: 'existing',
+    id: photo.id,
+    url: photo.url,
+    caption: photo.caption,
+    uploaded_at: photo.uploaded_at
+  }));
+  
+  // Transform pending photos with blob URLs
+  const pendingPhotoItems = (pendingPhotos || []).map((file, index) => ({
+    type: 'pending',
+    id: `pending_${index}`,
+    url: URL.createObjectURL(file),
+    file: file,
+    index: index,
+    caption: 'Pending upload...'
+  }));
+  
+  // Combine all photos
+  const allPhotos = [...existingPhotoItems, ...pendingPhotoItems];
+  const totalPhotoCount = allPhotos.length;
+  
+  // For collapsed view, show first 4
+  const photosToDisplay = expandPhotos ? allPhotos : allPhotos.slice(0, 4);
+  const hasMorePhotos = allPhotos.length > 4;
+
+  // ============================================
+  // UTILITY FUNCTIONS
+  // ============================================
+  
+  const formatTime = (time) => {
+    if (!time) return 'N/A';
+    const [hours, minutes] = time.split(':');
+    const hour = parseInt(hours);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = hour % 12 || 12;
+    return `${displayHour}:${minutes} ${ampm}`;
+  };
+
+  const formatWeatherCondition = (condition) => {
+    if (!condition) return 'Unknown';
+    return condition
+      .split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
+
   const getWeatherIcon = (condition) => {
     const icons = {
       sunny: '☀️',
@@ -31,244 +186,282 @@ const WeatherObservationCard = ({
       lightning: '⚡',
       strong_wind: '💨',
       haze: '🌫️',
-      fog: '🌫️',
-      // Legacy support for existing simple weather
-      'Sunny': '☀️',
-      'Cloudy': '☁️',
-      'Rainy': '🌧️',
-      'Heavy Rain': '⛈️',
-      'Stormy': '🌩️'
+      fog: '🌫️'
     };
     return icons[condition] || '🌤️';
   };
 
-  // Check if photos are mandatory for this condition
-  const requiresPhotos = (condition, workStoppage) => {
-    const mandatoryPhotoConditions = [
-      'heavy_rain',
-      'lightning',
-      'thunderstorm',
-      'Heavy Rain',
-      'Stormy'
-    ];
-    return mandatoryPhotoConditions.includes(condition) || workStoppage;
-  };
-
-  // Calculate daily summary
-  const dailySummary = observations.length > 0 ? {
-    totalObservations: observations.length,
-    totalRainfall: observations.reduce((sum, obs) => sum + (obs.rainfall_mm || 0), 0),
-    workStoppages: observations.filter(obs => obs.work_stoppage).length,
-    totalStoppageMinutes: observations
-      .filter(obs => obs.work_stoppage)
-      .reduce((sum, obs) => sum + (obs.work_stoppage_duration_minutes || 0), 0),
-    hasHeavyRain: observations.some(obs => 
-      obs.weather_condition === 'heavy_rain' || obs.weather_condition === 'Heavy Rain'
-    ),
-    hasLightning: observations.some(obs => obs.weather_condition === 'lightning'),
-    maxTemperature: Math.max(...observations.map(obs => obs.temperature || 0), 0)
-  } : null;
-
+  // ============================================
+  // RENDER
+  // ============================================
+  
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+    <div className="bg-white border border-gray-200 rounded-lg p-4 mb-3">
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-          🌤️ Weather Tracking
-          {isOffline && (
-            <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">
-              Offline Mode
-            </span>
-          )}
-        </h3>
-        <button
-          onClick={onAdd}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
-        >
-          + Add Observation
-        </button>
-      </div>
-
-      {/* Observations List */}
-      {observations.length === 0 ? (
-        <div className="text-center py-8 text-gray-500">
-          <p className="text-lg">No weather observations yet</p>
-          <p className="text-sm mt-2">
-            Add observations throughout the day to track weather conditions
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex-1">
+          <div className="flex items-center space-x-2 mb-1">
+            <span className="text-2xl">{getWeatherIcon(observation.weather_condition)}</span>
+            <h4 className="font-semibold text-gray-900">
+              {formatWeatherCondition(observation.weather_condition)}
+            </h4>
+          </div>
+          <p className="text-sm text-gray-600">
+            Time: {formatTime(observation.observation_time)}
           </p>
         </div>
-      ) : (
-        <div className="space-y-3 mb-6">
-          {observations
-            .sort((a, b) => (a.observation_time || '').localeCompare(b.observation_time || ''))
-            .map((obs, index) => (
-              <div
-                key={obs.id || index}
-                className={`border rounded-lg p-4 ${
-                  obs.work_stoppage 
-                    ? 'border-red-300 bg-red-50' 
-                    : 'border-gray-200 bg-white'
-                }`}
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    {/* Time and Condition */}
-                    <div className="flex items-center gap-3 mb-2">
-                      <span className="text-2xl">
-                        {getWeatherIcon(obs.weather_condition)}
-                      </span>
-                      <div>
-                        <p className="font-semibold text-gray-900">
-                          {obs.observation_time || 'Time not set'} - {(obs.weather_condition || 'Unknown').replace('_', ' ').toUpperCase()}
-                        </p>
-                        {obs.work_stoppage && (
-                          <span className="inline-flex items-center gap-1 text-xs bg-red-100 text-red-800 px-2 py-1 rounded-full">
-                            🚨 WORK STOPPED - {obs.work_stoppage_duration_minutes} minutes
-                          </span>
-                        )}
-                      </div>
-                    </div>
+        
+        {/* Action Buttons */}
+        {isDraft && onEdit && onDelete && (
+          <div className="flex gap-2">
+            <button
+              onClick={() => onEdit(observation)}
+              className="px-3 py-1.5 text-sm font-medium text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100"
+            >
+              Edit
+            </button>
+            <button
+              onClick={() => onDelete(observation.id)}
+              className="px-3 py-1.5 text-sm font-medium text-red-600 bg-red-50 rounded-md hover:bg-red-100"
+            >
+              Delete
+            </button>
+          </div>
+        )}
+      </div>
 
-                    {/* Environmental Data */}
-                    <div className="flex flex-wrap gap-4 text-sm text-gray-600 mb-2">
-                      {obs.temperature && <span>🌡️ {obs.temperature}°C</span>}
-                      {obs.humidity && <span>💧 {obs.humidity}%</span>}
-                      {obs.rainfall_mm > 0 && (
-                        <span className="font-semibold text-blue-600">
-                          ☔ {obs.rainfall_mm}mm
-                        </span>
-                      )}
-                      {obs.wind_speed_kmh > 0 && (
-                        <span>💨 {obs.wind_speed_kmh} km/h</span>
-                      )}
-                    </div>
-
-                    {/* Affected Activities */}
-                    {obs.affected_activities && obs.affected_activities.length > 0 && (
-                      <div className="mb-2">
-                        <p className="text-xs text-gray-500 mb-1">Affected Activities:</p>
-                        <div className="flex flex-wrap gap-1">
-                          {obs.affected_activities.map((activity, i) => (
-                            <span
-                              key={i}
-                              className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded"
-                            >
-                              {activity}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Remarks */}
-                    {obs.remarks && (
-                      <p className="text-sm text-gray-600 mt-2">
-                        📝 {obs.remarks}
-                      </p>
-                    )}
-
-                    {/* Photos */}
-                    {obs.photo_urls && obs.photo_urls.length > 0 && (
-                      <div className="mt-2 flex gap-2">
-                        {obs.photo_urls.map((url, i) => (
-                          <img
-                            key={i}
-                            src={url}
-                            alt={`Weather photo ${i + 1}`}
-                            className="w-16 h-16 object-cover rounded cursor-pointer hover:opacity-75"
-                            onClick={() => window.open(url, '_blank')}
-                          />
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Missing photos warning */}
-                    {requiresPhotos(obs.weather_condition, obs.work_stoppage) && 
-                     (!obs.photo_urls || obs.photo_urls.length === 0) && (
-                      <div className="mt-2 flex items-center gap-2 text-xs text-red-600 bg-red-50 px-2 py-1 rounded">
-                        ⚠️ Photos required for {(obs.weather_condition || 'this condition').replace('_', ' ')}
-                      </div>
-                    )}
-
-                    {/* Sync Status */}
-                    {obs.sync_status && obs.sync_status !== 'synced' && (
-                      <div className="mt-2 text-xs text-gray-500">
-                        {obs.sync_status === 'pending' && '⏳ Pending sync...'}
-                        {obs.sync_status === 'syncing' && '🔄 Syncing...'}
-                        {obs.sync_status === 'failed' && '❌ Sync failed'}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => onEdit(obs)}
-                      className="text-blue-600 hover:text-blue-800 text-sm"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => onDelete(obs.id)}
-                      className="text-red-600 hover:text-red-800 text-sm"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
+      {/* Weather Details */}
+      {(observation.temperature || observation.humidity) && (
+        <div className="grid grid-cols-2 gap-2 mb-3 text-sm">
+          {observation.temperature && (
+            <div>
+              <span className="text-gray-600">Temperature:</span>{' '}
+              <span className="font-medium">{observation.temperature}°C</span>
+            </div>
+          )}
+          {observation.humidity && (
+            <div>
+              <span className="text-gray-600">Humidity:</span>{' '}
+              <span className="font-medium">{observation.humidity}%</span>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Daily Summary */}
-      {dailySummary && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <h4 className="font-bold text-blue-900 mb-3">📊 Daily Summary</h4>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-            <div>
-              <p className="text-blue-600 font-medium">Total Observations</p>
-              <p className="text-2xl font-bold text-blue-900">
-                {dailySummary.totalObservations}
-              </p>
-            </div>
-            <div>
-              <p className="text-blue-600 font-medium">Total Rainfall</p>
-              <p className="text-2xl font-bold text-blue-900">
-                {dailySummary.totalRainfall.toFixed(1)}mm
-              </p>
-            </div>
-            <div>
-              <p className="text-blue-600 font-medium">Work Stoppages</p>
-              <p className="text-2xl font-bold text-blue-900">
-                {dailySummary.workStoppages}
-                {dailySummary.totalStoppageMinutes > 0 && (
-                  <span className="text-sm ml-1">
-                    ({dailySummary.totalStoppageMinutes} min)
-                  </span>
-                )}
-              </p>
-            </div>
-            <div>
-              <p className="text-blue-600 font-medium">Max Temperature</p>
-              <p className="text-2xl font-bold text-blue-900">
-                {dailySummary.maxTemperature}°C
-              </p>
+      {/* Work Stoppage Alert */}
+      {observation.work_stoppage && (
+        <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+          <div className="flex items-start">
+            <span className="text-amber-600 mr-2">⚠️</span>
+            <div className="flex-1">
+              <p className="text-sm font-medium text-amber-900">Work Stoppage</p>
+              {observation.work_stoppage_duration_minutes && (
+                <p className="text-sm text-amber-800">
+                  Duration: {observation.work_stoppage_duration_minutes} minutes
+                </p>
+              )}
+              {observation.affected_activities && observation.affected_activities.length > 0 && (
+                <div className="mt-1">
+                  <p className="text-sm text-amber-800">Affected activities:</p>
+                  <ul className="list-disc list-inside text-sm text-amber-700 mt-1">
+                    {observation.affected_activities.map((activity, idx) => (
+                      <li key={idx}>{activity}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Remarks */}
+      {observation.remarks && (
+        <div className="mb-3">
+          <p className="text-sm text-gray-700">
+            <span className="font-medium">Remarks:</span> {observation.remarks}
+          </p>
+        </div>
+      )}
+
+      {/* ============================================ */}
+      {/* WEATHER PHOTOS SECTION */}
+      {/* ============================================ */}
+      
+      <div className="border-t border-gray-200 pt-3 mt-3">
+        {/* Header with Photo Count */}
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center space-x-2">
+            <span className="text-lg">📸</span>
+            <h5 className="font-medium text-gray-900">
+              Weather Photos
+              {totalPhotoCount > 0 && (
+                <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                  {totalPhotoCount}
+                </span>
+              )}
+            </h5>
+          </div>
           
-          {/* Alerts */}
-          <div className="mt-3 space-y-1">
-            {dailySummary.hasHeavyRain && (
-              <div className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded">
-                ⚠️ Heavy Rain Alert
-              </div>
+          {/* Add Photos Button */}
+          {isDraft && (
+            <div>
+              <input
+                type="file"
+                id={`photo-upload-${observation.id}`}
+                accept="image/jpeg,image/jpg,image/png,image/webp"
+                multiple
+                onChange={handleFileSelect}
+                className="hidden"
+              />
+              <label
+                htmlFor={`photo-upload-${observation.id}`}
+                className="inline-flex items-center px-3 py-1.5 border border-blue-600 text-sm font-medium rounded-md text-blue-600 bg-white hover:bg-blue-50 cursor-pointer"
+              >
+                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                Add Photos
+              </label>
+            </div>
+          )}
+        </div>
+
+        {/* Photo Summary (if photos exist) */}
+        {totalPhotoCount > 0 && (
+          <div className="mb-2">
+            <p className="text-xs text-gray-600">
+              {existingPhotos.length > 0 && `${existingPhotos.length} saved`}
+              {existingPhotos.length > 0 && pendingPhotos.length > 0 && ' • '}
+              {pendingPhotos.length > 0 && (
+                <span className="text-blue-600 font-medium">
+                  {pendingPhotos.length} pending (will upload on save)
+                </span>
+              )}
+            </p>
+          </div>
+        )}
+
+        {/* Photos Display */}
+        {loadingExisting ? (
+          <div className="text-center py-4 text-gray-500">
+            Loading photos...
+          </div>
+        ) : totalPhotoCount === 0 ? (
+          <div className="text-center py-4 bg-gray-50 rounded-lg border border-gray-200">
+            <p className="text-sm text-gray-500">No photos yet</p>
+            {isDraft && (
+              <p className="text-xs text-gray-400 mt-1">
+                Click "Add Photos" to attach weather photos
+              </p>
             )}
-            {dailySummary.hasLightning && (
-              <div className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded">
-                ⚠️ Lightning Alert - Safety Critical
-              </div>
+          </div>
+        ) : (
+          <>
+            {/* Photo Grid */}
+            <div className="grid grid-cols-4 gap-2">
+              {photosToDisplay.map((photo) => (
+                <div key={photo.id} className="relative group">
+                  {/* Photo Image */}
+                  <div 
+                    className={`
+                      aspect-square rounded-lg overflow-hidden cursor-pointer
+                      ${photo.type === 'pending' 
+                        ? 'border-2 border-dashed border-blue-300' 
+                        : 'border border-gray-300'
+                      }
+                    `}
+                    onClick={() => setSelectedPhoto(photo)}
+                  >
+                    <img
+                      src={photo.url}
+                      alt={photo.caption}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+
+                  {/* Type Badge */}
+                  {photo.type === 'pending' && (
+                    <div className="absolute top-1 left-1">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                        Pending
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Delete Button */}
+                  {isDraft && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (photo.type === 'existing') {
+                          handleDeleteExisting(photo.id);
+                        } else {
+                          handleDeletePending(photo.index);
+                        }
+                      }}
+                      disabled={deletingPhotoId === photo.id}
+                      className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition hover:bg-red-700 disabled:opacity-50"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Show All Button */}
+            {hasMorePhotos && (
+              <button
+                onClick={() => setExpandPhotos(!expandPhotos)}
+                className="mt-2 text-sm text-blue-600 hover:text-blue-800 font-medium"
+              >
+                {expandPhotos ? 'Show Less' : `Show All (${allPhotos.length})`}
+              </button>
             )}
+          </>
+        )}
+      </div>
+
+      {/* ============================================ */}
+      {/* LIGHTBOX MODAL */}
+      {/* ============================================ */}
+      
+      {selectedPhoto && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4"
+          onClick={() => setSelectedPhoto(null)}
+        >
+          <div className="relative max-w-4xl max-h-[80vh]">
+            {/* Close Button */}
+            <button
+              onClick={() => setSelectedPhoto(null)}
+              className="absolute top-2 right-2 bg-white rounded-full p-2 hover:bg-gray-100"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            
+            {/* Image */}
+            <img
+              src={selectedPhoto.url}
+              alt={selectedPhoto.caption}
+              className="max-w-full max-h-[80vh] rounded-lg"
+              onClick={(e) => e.stopPropagation()}
+            />
+            
+            {/* Caption */}
+            <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white p-4 rounded-b-lg">
+              <p className="text-sm">{selectedPhoto.caption}</p>
+              {selectedPhoto.type === 'pending' && (
+                <p className="text-xs text-blue-300 mt-1">
+                  ⏳ Pending upload - will be saved when you save the diary
+                </p>
+              )}
+            </div>
           </div>
         </div>
       )}

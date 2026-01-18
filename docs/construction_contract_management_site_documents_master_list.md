@@ -1,0 +1,1218 @@
+# Construction Contract Management & Site Documentation – Master List
+
+## 1. Pre-Contract & Tender Stage Documents
+
+### 1.1 Employer / Client Documents
+- Project Brief
+- Employer’s Requirements (ER)
+- Scope of Work (SOW)
+- Concept Drawings
+- Preliminary Specifications
+- Project Budget / Cost Limit
+- Tender Instructions
+- Tender Evaluation Criteria
+
+### 1.2 Tender Documents
+- Invitation to Tender (ITT)
+- Request for Proposal (RFP)
+- Request for Quotation (RFQ)
+- Conditions of Tender
+- Priced / Unpriced Bill of Quantities (BQ)
+- Schedule of Rates (SOR)
+- Preliminaries
+- Tender Drawings
+- Technical Specifications
+- Contract Conditions (PAM / JKR / FIDIC / Bespoke)
+- Tender Addenda / Clarifications
+
+### 1.3 Contractor Submissions (Tender)
+- Form of Tender
+- Tender Bond / Bid Security
+- Company Profile
+- Method Statement (Outline)
+- Preliminary Programme
+- Preliminary HSE Plan
+- Financial Statements
+- Key Personnel CVs
+- Past Project Experience
+- Plant & Equipment List
+
+---
+
+## 2. Contract Formation Documents
+
+- Letter of Acceptance (LOA)
+- Letter of Award
+- Contract Agreement
+- Conditions of Contract (General & Particular)
+- Appendix to Conditions of Contract
+- Contract Drawings (IFC)
+- Contract Specifications
+- Priced Bill of Quantities / Contract Sum Analysis
+- Contract Programme
+- Performance Bond
+- Advance Payment Bond (if applicable)
+- Insurance Policies:
+  - Contractor’s All Risk (CAR)
+  - Public Liability Insurance
+  - Workmen Compensation Insurance
+  - Professional Indemnity Insurance (if applicable)
+- Power of Attorney (if required)
+
+---
+
+## 3. Project Management & Administration Documents
+
+### 3.1 General Administration
+- Project Execution Plan (PEP)
+- Project Quality Plan (PQP)
+- Project HSE Plan
+- Document Control Procedure
+- Communication Matrix
+- Authority Matrix
+- Site Organisation Chart
+- Site Rules & Regulations
+- Code of Conduct
+
+### 3.2 Correspondence & Records
+- Incoming Correspondence Register
+- Outgoing Correspondence Register
+- Email Register
+- Transmittal Forms
+- Drawing Issue Register
+- Site Memo
+- Site Instruction (SI)
+- Architect’s Instruction (AI)
+- Engineer’s Instruction (EI)
+- Confirmation of Verbal Instruction (CVI)
+
+---
+
+## 4. Planning & Scheduling Documents
+
+- Master Programme
+- Detailed Construction Programme
+- Look-Ahead Programme (2-week / 4-week)
+- Recovery Programme
+- Revised Programme
+- Programme Narrative
+- Delay Analysis Reports
+- Extension of Time (EOT) Supporting Documents
+- Daily Productivity Records
+- Resource Histogram
+
+---
+
+## 5. Site Diary & Daily Records
+
+- Daily Site Diary
+- Weather Records
+- Manpower Deployment Records
+- Plant & Equipment Utilisation Records
+- Daily Work Progress Logs
+- Site Photographic Records
+- Inspection Requests (IR / WIR)
+- Visitor Log
+- Toolbox Meeting Records
+- Daily Safety Observations
+- Non-Working Day Records
+
+---
+
+## 6. Health, Safety & Environment (HSE)
+
+### 6.1 HSE Plans & Policies
+- HSE Policy
+- Project HSE Plan
+- Environmental Management Plan (EMP)
+- Emergency Response Plan
+- Traffic Management Plan
+- Waste Management Plan
+- Permit-to-Work Procedures
+
+### 6.2 HSE Forms & Records
+- Permit to Work (Hot Work, Confined Space, Working at Height, etc.)
+- Job Safety Analysis (JSA)
+- Hazard Identification & Risk Assessment (HIRARC)
+- Method Statements (Safety-Critical Works)
+- Toolbox Talk Forms
+- Safety Induction Records
+- PPE Issuance Records
+- Accident / Incident Reports
+- Near Miss Reports
+- First Aid Treatment Records
+- Safety Inspection Checklists
+- Safety Audit Reports
+- Corrective Action Reports
+- Authority Notices (DOSH / CIDB / Local Authority)
+
+---
+
+## 7. Quality Control / Quality Assurance (QA/QC)
+
+### 7.1 QA Documents
+- Quality Policy
+- Project Quality Plan (PQP)
+- Inspection & Test Plan (ITP)
+- Method Statements
+- Calibration Records
+- Quality Objectives & KPIs
+
+### 7.2 QC Forms & Records
+- Material Approval Request (MAR)
+- Sample Approval Forms
+- Shop Drawing Submissions
+- Shop Drawing Review & Approval Records
+- Inspection Requests (IR / RFI)
+- Work Inspection Records
+- Test Reports (Concrete, Steel, Soil, etc.)
+- Non-Conformance Reports (NCR)
+- Corrective Action Requests (CAR)
+- Observation Reports
+- Snag Lists / Defect Lists
+- Rectification Records
+- Final Inspection Certificates
+
+---
+
+## 8. Technical & Construction Documents
+
+- Issued for Construction (IFC) Drawings
+- Shop Drawings
+- As-Built Drawings
+- Method Statements
+- Construction Details
+- Technical Submissions
+- Material Data Sheets
+- Manufacturer Catalogues
+- Operation & Maintenance (O&M) Manuals
+- Commissioning Procedures
+- Testing & Commissioning Records
+
+---
+
+## 9. Commercial & Contractual Documents
+
+### 9.1 Financial & Cost Control
+- Contract Sum Analysis
+- Cost Plan
+- Cash Flow Forecast
+- Interim Valuations
+- Progress Claims
+- Payment Certificates
+- Variation Orders (VO)
+- Variation Quotations
+- Daywork Sheets
+- Provisional Sum Expenditure Records
+- Final Account Statements
+
+### 9.2 Contractual Administration
+- Extension of Time (EOT) Claims
+- Delay Notices
+- Loss & Expense Claims
+- Claims Substantiation Documents
+- Dispute Notices
+- Meeting Minutes (Site / Technical / Commercial)
+- Settlement Agreements
+
+---
+
+## 10. Subcontract & Supplier Management
+
+- Subcontract Agreements
+- Supplier Purchase Orders
+- Subcontractor Insurance Documents
+- Subcontractor Method Statements
+- Subcontractor HSE Plans
+- Subcontractor Progress Claims
+- Subcontractor Payment Certificates
+- Supplier Delivery Orders (DO)
+- Material Receiving Inspection Records
+- Subcontractor Performance Evaluations
+
+---
+
+## 11. Statutory, Authority & Compliance Documents (Malaysia)
+
+- CIDB Registration & Levy Records
+- DOSH Notifications & Approvals
+- Local Authority Approvals
+- Environmental Impact Assessment (EIA)
+- Safety & Health Officer (SHO) Appointment Letters
+- Site Supervisor Appointment Letters
+- BOMBA Approvals
+- Utility Authority Clearances
+- Temporary Occupation Permit (TOP) / Certificate of Completion & Compliance (CCC)
+- Authority Inspection Reports
+
+---
+
+## 12. Testing, Commissioning & Handover
+
+- Testing & Commissioning Plans
+- Commissioning Records
+- Functional Test Reports
+- Performance Test Certificates
+- Defects Liability Period (DLP) Records
+- Defect Notification Forms
+- Defect Rectification Records
+- Certificate of Practical Completion (CPC)
+- Certificate of Making Good Defects (CMGD)
+- Final Completion Certificates
+- Handover Checklists
+
+---
+
+## 13. Project Close-Out & Archiving
+
+- Approved As-Built Drawings
+- Final Operation & Maintenance Manuals
+- Warranties & Guarantees
+- Final Account Agreements
+- Lessons Learned Reports
+- Project Completion Reports
+- Document Archive Index
+
+---
+
+## 14. Digital & System-Based Records
+
+- Digital Site Diary Logs
+- Time-Stamped & Geo-Tagged Photos
+- Digital Signatures & Approvals
+- Audit Trail Logs
+- User Access & Role Permission Records
+- Data Backup & Retention Records
+
+
+---
+
+# Appendix A – Digital Construction Diary (Hybrid PAM + FIDIC) Alignment
+
+## A1. Core Design Principle
+
+**Daily Site Diary is the factual anchor**. All contractual, HSE, QA/QC, commercial, and statutory records must be:
+- time-stamped
+- attributable to a contract/project
+- traceable to site activities
+- evidentially defensible under PAM & FIDIC
+
+---
+
+## A2. Logical Document Grouping (Hybrid Mapping)
+
+| Domain | PAM Reference | FIDIC Reference | System Logic |
+|------|---------------|----------------|--------------|
+| Instructions | AI / SI | Engineer’s Instruction (EI) | Linked to diary date & work scope |
+| Progress | Site Diary | Daily Records | Primary evidence source |
+| Variations | VO | Variation | Instruction → valuation → approval |
+| Delay | EOT | EOT (Clause 8) | Diary + programme + notices |
+| Claims | Loss & Expense | Claims (Clause 20) | Evidence bundle |
+| Quality | Architect / SO certs | Engineer approval | ITP-driven |
+| Safety | OSHA / DOSH | Employer HSE | Permit & incident driven |
+
+---
+
+## A3. High-Level Database Schema (Conceptual)
+
+### Core Tables
+- projects
+- contracts
+- users
+- roles
+- organizations
+
+### Diary & Evidence
+- site_diaries
+- diary_weather
+- diary_manpower
+- diary_plant
+- diary_photos
+- diary_activities
+
+### Documents & Control
+- document_categories
+- document_types
+- documents
+- document_versions
+- document_transmittals
+
+### Workflow & Approvals
+- submissions
+- reviews
+- approvals
+- comments
+
+### HSE
+- hse_plans
+- permits_to_work
+- jsas
+- incidents
+- safety_inspections
+
+### QA/QC
+- itps
+- inspections
+- material_approvals
+- ncrs
+- corrective_actions
+
+### Commercial & Contractual
+- instructions
+- variations
+- progress_claims
+- payment_certificates
+- eot_claims
+- loss_expense_claims
+
+---
+
+## A4. Key Relationships (Simplified)
+
+- project → contracts → site_diaries
+- site_diary → photos / weather / manpower / activities
+- site_diary → instructions → variations → claims
+- site_diary → inspections → NCR → rectification
+- site_diary → incidents → authority notifications
+
+---
+
+## A5. Evidence Chain Example (Delay Claim)
+
+1. Weather recorded in site_diary
+2. Affected activity logged
+3. Programme impact referenced
+4. Delay notice issued
+5. EOT claim assembled
+6. Approval / rejection recorded
+
+This mirrors **PAM Clause 23** and **FIDIC Clause 8 & 20** logic.
+
+---
+
+## A6. Supabase / RLS Considerations
+
+- Role-based access (Employer / Consultant / Contractor / Subcontractor)
+- Read-only historical diaries
+- Immutable evidence records
+- Full audit trail on approvals & changes
+
+---
+
+## A7. Master Plan Alignment Summary
+
+This schema ensures:
+- legal defensibility
+- cross-contract compatibility
+- scalable multi-project deployment
+- readiness for claims, adjudication (CIPAA), and arbitration
+
+**Daily Diary remains the single source of truth.**
+
+
+
+---
+
+# Appendix B – Full Workflow Mapping (Hybrid PAM + FIDIC)
+
+This section defines **end‑to‑end operational workflows** for a Construction Digital Diary system where the **Daily Site Diary is the single source of truth**. All workflows are defensible under **PAM (Malaysia)** and **FIDIC** logic.
+
+---
+
+## B1. Core Workflow Philosophy
+
+1. **Site activity happens**
+2. **Diary records facts (immutable)**
+3. **Documents reference diary entries**
+4. **Instructions formalise changes**
+5. **Commercial impacts are valued**
+6. **Approvals close the loop**
+
+> Diary entries are never altered retroactively. Corrections are done via supplementary records.
+
+---
+
+## B2. Daily Site Diary Workflow (Foundation)
+
+### Trigger
+- Start of site working day
+
+### Steps
+1. Create Daily Site Diary (per contract, per date)
+2. Record:
+   - weather
+   - manpower
+   - plant & equipment
+   - work activities by location & trade
+   - delays / disruptions
+3. Attach geo‑tagged photos
+4. Log visitors & toolbox talks
+5. Submit diary (locked after cut‑off)
+
+### Outputs
+- Authoritative factual record
+- Evidence anchor for all downstream workflows
+
+---
+
+## B3. Instruction Workflow (AI / EI / SI)
+
+### Trigger
+- Design change, site issue, clarification, or directive
+
+### Steps
+1. Instruction drafted (AI / EI / SI)
+2. Instruction references:
+   - diary date(s)
+   - affected activities
+   - drawings / specs
+3. Issued to Contractor
+4. Contractor acknowledges
+5. Instruction status tracked (Issued → Acknowledged → Closed)
+
+### Contract Logic
+- PAM: Architect / SO Instruction
+- FIDIC: Engineer’s Instruction
+
+---
+
+## B4. Variation Workflow (VO)
+
+### Trigger
+- Instruction affecting cost and/or time
+
+### Steps
+1. Instruction flagged as **variation‑related**
+2. Contractor submits Variation Quotation
+3. Quotation references:
+   - instruction
+   - diary records
+   - BQ / SOR items
+4. Consultant reviews & negotiates
+5. Approved VO issued
+6. Variation logged into contract sum
+
+### Outputs
+- Approved variation
+- Updated contract value
+
+---
+
+## B5. Programme & Delay Workflow
+
+### Trigger
+- Delay event recorded in diary
+
+### Steps
+1. Delay recorded in diary (cause & impact)
+2. Delay notice issued within contractual time
+3. Programme impact analysis prepared
+4. Supporting evidence attached:
+   - diary
+   - weather
+   - photos
+5. Revised / recovery programme submitted
+
+### Contract Logic
+- PAM Clause 23
+- FIDIC Clause 8
+
+---
+
+## B6. Extension of Time (EOT) Workflow
+
+### Trigger
+- Excusable delay event
+
+### Steps
+1. Delay notice issued
+2. EOT claim assembled
+3. Evidence bundle auto‑linked:
+   - diary entries
+   - instructions
+   - programmes
+4. Consultant assessment
+5. EOT approval / rejection
+6. Contract completion date updated
+
+---
+
+## B7. Loss & Expense / Claims Workflow
+
+### Trigger
+- Delay or disruption with cost impact
+
+### Steps
+1. Claim notice issued
+2. Loss & Expense particulars submitted
+3. Cost records linked:
+   - manpower
+   - plant
+   - preliminaries
+4. Diary used as proof of disruption
+5. Assessment & negotiation
+6. Determination / settlement
+
+### Contract Logic
+- PAM Clause 24
+- FIDIC Clause 20
+
+---
+
+## B8. HSE Workflow
+
+### B8.1 Permit‑to‑Work Workflow
+1. Permit request raised
+2. Risk assessment attached (JSA / HIRARC)
+3. Approval by authorised person
+4. Permit referenced in diary
+5. Permit closed after work
+
+### B8.2 Incident Workflow
+1. Incident recorded in diary
+2. Incident report generated
+3. Investigation & root cause analysis
+4. Corrective actions assigned
+5. Authority notification (if required)
+6. Incident closed
+
+---
+
+## B9. QA/QC Workflow
+
+### B9.1 Inspection Workflow
+1. Work completed & logged in diary
+2. Inspection Request (IR) submitted
+3. Inspection conducted
+4. Pass / Fail recorded
+
+### B9.2 NCR Workflow
+1. Non‑conformance identified
+2. NCR issued
+3. Rectification method proposed
+4. Rectification executed
+5. Re‑inspection
+6. NCR closed
+
+---
+
+## B10. Progress Claim & Payment Workflow
+
+### Trigger
+- Valuation cut‑off date
+
+### Steps
+1. Progress measured against diary & BOQ
+2. Progress claim submitted
+3. Consultant valuation
+4. Payment certificate issued
+5. Payment recorded
+
+---
+
+## B11. Subcontractor Workflow
+
+1. Subcontractor daily works logged in diary
+2. Subcontractor claims submitted
+3. Main contractor assessment
+4. Certified for payment
+5. Performance tracked
+
+---
+
+## B12. Testing, Commissioning & Handover Workflow
+
+1. Testing plans submitted
+2. Tests conducted & recorded
+3. Commissioning completed
+4. Defects recorded (DLP)
+5. Defects rectified
+6. CPC → CMGD → Final Completion
+
+---
+
+## B13. Dispute & Adjudication Readiness Workflow
+
+1. Dispute event logged
+2. Evidence auto‑compiled:
+   - diary
+   - instructions
+   - claims
+3. CIPAA adjudication bundle generated
+4. Arbitration / litigation support
+
+---
+
+## B14. Workflow Governance Rules
+
+- Diaries are immutable after submission
+- All claims must reference diary evidence
+- All approvals are time‑stamped
+- Full audit trail preserved
+
+---
+
+## B15. Master Plan Alignment Statement
+
+This workflow ensures:
+- compliance with PAM & FIDIC
+- defensible evidence chain
+- scalable digital implementation
+- strong dispute‑avoidance architecture
+
+**Daily Site Diary remains the system backbone.**
+
+
+
+---
+
+# Appendix C – Module Mapping (Application Architecture)
+
+This section translates the **Hybrid PAM + FIDIC workflows** into **practical application modules**. Each module is designed around the principle that the **Daily Site Diary is the core data source**, with all other modules referencing it.
+
+---
+
+## C1. Core Modules Overview
+
+| Module | Purpose | Key Users |
+|------|--------|-----------|
+| Project & Contract Setup | Project baseline & contract data | Admin, Employer |
+| Daily Site Diary | Record site facts (anchor) | Contractor, Consultant |
+| Instructions | Formal site directions | Consultant, Employer |
+| Variations | Cost & scope changes | Contractor, QS |
+| Programme & Delay | Time management | Planner, QS |
+| EOT & Claims | Contractual entitlement | QS, Contract Manager |
+| HSE | Safety & compliance | SHO, Site Team |
+| QA/QC | Quality assurance & control | QA/QC Engineer |
+| Progress & Payment | Financial certification | QS, Employer |
+| Subcontractor | Downstream control | Contractor |
+| Handover & Close‑Out | Completion & archive | All parties |
+| Admin & Governance | Access, audit, settings | System Admin |
+
+---
+
+## C2. Project & Contract Setup Module
+
+### Functions
+- Create project
+- Define contract type (PAM / FIDIC / Hybrid)
+- Set commencement & completion dates
+- Upload contract documents
+
+### Data Objects
+- project
+- contract
+- organizations
+- roles
+
+---
+
+## C3. Daily Site Diary Module (Core)
+
+### Functions
+- Create diary per date
+- Record weather, manpower, plant
+- Log activities by trade & location
+- Capture delays & remarks
+- Attach photos
+- Submit & lock diary
+
+### Outputs
+- Immutable factual record
+
+### Linked Modules
+- Instructions
+- HSE
+- QA/QC
+- Variations
+- Claims
+
+---
+
+## C4. Instructions Module (AI / EI / SI)
+
+### Functions
+- Issue instruction
+- Reference diary dates
+- Attach drawings & specs
+- Track acknowledgement
+
+### Outputs
+- Formal contractual instruction
+
+---
+
+## C5. Variations Module
+
+### Functions
+- Flag instruction as variation
+- Submit variation quotation
+- QS assessment & approval
+- Update contract sum
+
+### Dependencies
+- Instructions
+- Diary records
+- BOQ / SOR
+
+---
+
+## C6. Programme & Delay Module
+
+### Functions
+- Upload baseline programme
+- Record delays from diary
+- Issue delay notices
+- Submit revised programmes
+
+### Contract Logic
+- PAM Clause 23
+- FIDIC Clause 8
+
+---
+
+## C7. EOT & Claims Module
+
+### Functions
+- Submit EOT claim
+- Auto‑attach diary evidence
+- Submit loss & expense
+- Track determinations
+
+### Evidence Bundle
+- diary
+- instructions
+- programmes
+- cost records
+
+---
+
+## C8. HSE Module
+
+### Sub‑Modules
+- Permits to Work
+- JSA / HIRARC
+- Toolbox Talks
+- Incidents & Near Misses
+
+### Key Rule
+- All HSE events must reference diary entries
+
+---
+
+## C9. QA/QC Module
+
+### Sub‑Modules
+- ITPs
+- Inspections (IR)
+- NCR & Corrective Actions
+
+### Workflow
+- Work logged → IR → Pass / NCR → Close
+
+---
+
+## C10. Progress Claim & Payment Module
+
+### Functions
+- Measure progress from diary & BOQ
+- Submit claims
+- Issue payment certificates
+- Track payments
+
+---
+
+## C11. Subcontractor Module
+
+### Functions
+- Register subcontractors
+- Capture subcontractor diary inputs
+- Certify subcontractor claims
+- Track performance
+
+---
+
+## C12. Handover & Close‑Out Module
+
+### Functions
+- Track testing & commissioning
+- Manage DLP defects
+- Issue CPC / CMGD
+- Archive documents
+
+---
+
+## C13. Admin & Governance Module
+
+### Functions
+- Role‑based access control
+- Approval workflows
+- Audit trail
+- Data retention rules
+
+---
+
+## C14. Cross‑Module Design Rules
+
+- Diary is mandatory reference key
+- No variation or claim without instruction or diary
+- Immutable historical records
+- Full traceability across modules
+
+---
+
+## C15. Master Plan Alignment Summary
+
+This module mapping:
+- directly implements Appendix B workflows
+- supports Hybrid PAM + FIDIC contracts
+- is scalable for multi‑project deployment
+- is Supabase‑ready by design
+
+**The Daily Site Diary remains the system nucleus.**
+
+
+
+---
+
+# Appendix D – Role-Based Access Matrix (Hybrid PAM + FIDIC)
+
+This appendix defines **who can view, create, submit, approve, certify, or lock records** across the system. It is designed to be **legally defensible**, **Supabase RLS–friendly**, and aligned with **PAM + FIDIC contractual authority structures**.
+
+Legend:
+- **V** = View
+- **C** = Create / Edit (Draft)
+- **S** = Submit
+- **A** = Approve / Certify
+- **L** = Lock / Close
+
+---
+
+## D1. Core Roles
+
+| Role | Description |
+|-----|-------------|
+| Employer | Client / Owner |
+| Consultant | Architect / Engineer / SO |
+| Contractor | Main Contractor |
+| QS | Quantity Surveyor |
+| SHO | Safety & Health Officer |
+| QAQC | QA/QC Engineer |
+| Subcontractor | Trade Contractor |
+| Admin | System Administrator |
+
+---
+
+## D2. Daily Site Diary Access
+
+| Role | V | C | S | A | L |
+|-----|---|---|---|---|---|
+| Employer | ✓ | – | – | – | – |
+| Consultant | ✓ | ✓ | ✓ | – | – |
+| Contractor | ✓ | ✓ | ✓ | – | ✓ |
+| QS | ✓ | – | – | – | – |
+| SHO | ✓ | ✓ | ✓ | – | – |
+| QAQC | ✓ | ✓ | ✓ | – | – |
+| Subcontractor | ✓ | ✓* | ✓* | – | – |
+| Admin | ✓ | ✓ | ✓ | ✓ | ✓ |
+
+\* Subcontractor entries are restricted to assigned scopes and require Contractor visibility.
+
+---
+
+## D3. Instructions (AI / EI / SI)
+
+| Role | V | C | S | A | L |
+|-----|---|---|---|---|---|
+| Employer | ✓ | – | – | – | – |
+| Consultant | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Contractor | ✓ | – | ✓ (ack) | – | – |
+| QS | ✓ | – | – | – | – |
+| Subcontractor | ✓ | – | – | – | – |
+| Admin | ✓ | ✓ | ✓ | ✓ | ✓ |
+
+---
+
+## D4. Variations (VO)
+
+| Role | V | C | S | A | L |
+|-----|---|---|---|---|---|
+| Employer | ✓ | – | – | ✓ | – |
+| Consultant | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Contractor | ✓ | ✓ | ✓ | – | – |
+| QS | ✓ | ✓ | ✓ | ✓ | – |
+| Subcontractor | ✓ | ✓* | ✓* | – | – |
+| Admin | ✓ | ✓ | ✓ | ✓ | ✓ |
+
+---
+
+## D5. Programme, Delay & EOT
+
+| Role | V | C | S | A | L |
+|-----|---|---|---|---|---|
+| Employer | ✓ | – | – | ✓ | – |
+| Consultant | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Contractor | ✓ | ✓ | ✓ | – | – |
+| QS | ✓ | ✓ | ✓ | ✓ | – |
+| Subcontractor | ✓ | – | – | – | – |
+| Admin | ✓ | ✓ | ✓ | ✓ | ✓ |
+
+---
+
+## D6. Loss & Expense / Claims
+
+| Role | V | C | S | A | L |
+|-----|---|---|---|---|---|
+| Employer | ✓ | – | – | ✓ | – |
+| Consultant | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Contractor | ✓ | ✓ | ✓ | – | – |
+| QS | ✓ | ✓ | ✓ | ✓ | – |
+| Subcontractor | ✓ | ✓* | ✓* | – | – |
+| Admin | ✓ | ✓ | ✓ | ✓ | ✓ |
+
+---
+
+## D7. HSE Module
+
+| Role | V | C | S | A | L |
+|-----|---|---|---|---|---|
+| Employer | ✓ | – | – | – | – |
+| Consultant | ✓ | ✓ | ✓ | – | – |
+| Contractor | ✓ | ✓ | ✓ | ✓ | ✓ |
+| SHO | ✓ | ✓ | ✓ | ✓ | ✓ |
+| QAQC | ✓ | ✓ | ✓ | – | – |
+| Subcontractor | ✓ | ✓ | ✓ | – | – |
+| Admin | ✓ | ✓ | ✓ | ✓ | ✓ |
+
+---
+
+## D8. QA/QC Module
+
+| Role | V | C | S | A | L |
+|-----|---|---|---|---|---|
+| Employer | ✓ | – | – | – | – |
+| Consultant | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Contractor | ✓ | ✓ | ✓ | – | – |
+| QAQC | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Subcontractor | ✓ | ✓ | ✓ | – | – |
+| Admin | ✓ | ✓ | ✓ | ✓ | ✓ |
+
+---
+
+## D9. Progress Claims & Payment Certificates
+
+| Role | V | C | S | A | L |
+|-----|---|---|---|---|---|
+| Employer | ✓ | – | – | ✓ | – |
+| Consultant | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Contractor | ✓ | ✓ | ✓ | – | – |
+| QS | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Subcontractor | ✓ | ✓* | ✓* | – | – |
+| Admin | ✓ | ✓ | ✓ | ✓ | ✓ |
+
+---
+
+## D10. Handover & Close-Out
+
+| Role | V | C | S | A | L |
+|-----|---|---|---|---|---|
+| Employer | ✓ | – | – | ✓ | ✓ |
+| Consultant | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Contractor | ✓ | ✓ | ✓ | – | – |
+| QS | ✓ | ✓ | ✓ | ✓ | – |
+| Subcontractor | ✓ | ✓ | ✓ | – | – |
+| Admin | ✓ | ✓ | ✓ | ✓ | ✓ |
+
+---
+
+## D11. Governance & RLS Rules
+
+- Only **Consultant / Engineer / Architect** can issue formal instructions
+- Only **Consultant / QS** can certify payments
+- Diaries become **read-only after submission**
+- Subcontractors are always **scoped and non-certifying**
+- All approvals are **time-stamped & auditable**
+
+---
+
+## D12. Master Plan Alignment Statement
+
+This access matrix:
+- enforces contractual authority
+- prevents unauthorised certifications
+- supports Supabase Row Level Security (RLS)
+- strengthens dispute defensibility
+
+**Authority follows contract, not convenience.**
+
+
+
+---
+
+# Appendix E – Screen → Role → Action Mapping
+
+This appendix converts the **Role-Based Access Matrix** into **practical application screen behaviour**. It defines exactly **what each role can do on each screen**, ensuring the UI enforces **contractual authority**, not user preference.
+
+Design principle:
+> **If a role cannot legally perform an action under PAM / FIDIC, the button must not exist on the screen.**
+
+---
+
+## E1. Daily Site Diary Screen
+
+| Role | Allowed Actions |
+|------|-----------------|
+| Contractor | Create diary, edit draft, submit diary, lock after submission |
+| Consultant | Create diary entries, add remarks, submit diary |
+| SHO | Add HSE entries, submit HSE diary |
+| QAQC | Add QA/QC observations |
+| Subcontractor | Add scoped diary inputs only |
+| Employer | View only |
+
+**System Rules**
+- Once submitted, diary becomes read-only
+- All downstream modules must reference diary ID(s)
+
+---
+
+## E2. Instructions Screen (AI / EI / SI)
+
+| Role | Allowed Actions |
+|------|-----------------|
+| Consultant | Draft instruction, issue instruction, amend before issue, lock |
+| Contractor | View instruction, acknowledge receipt |
+| Employer | View only |
+| QS | View only |
+
+**System Rules**
+- Instructions must reference diary dates or events
+- Issued instructions are immutable
+
+---
+
+## E3. Variation Screen
+
+| Role | Allowed Actions |
+|------|-----------------|
+| Contractor | Propose variation, submit quotation |
+| Subcontractor | Submit supporting quotation (scoped) |
+| QS | Assess valuation, recommend amount |
+| Consultant | Approve / reject variation, lock |
+| Employer | View approved variations |
+
+**System Rules**
+- Variation must link to instruction ID
+- No approval without QS assessment
+
+---
+
+## E4. Programme & Delay Screen
+
+| Role | Allowed Actions |
+|------|-----------------|
+| Contractor | Upload baseline & revised programme, flag delays |
+| QS | Analyse delay impact |
+| Consultant | Review programme, accept / reject |
+| Employer | View only |
+
+**System Rules**
+- Delay events must reference diary records
+
+---
+
+## E5. EOT & Claims Screen
+
+| Role | Allowed Actions |
+|------|-----------------|
+| Contractor | Submit EOT claim, submit loss & expense |
+| QS | Assess entitlement & quantum |
+| Consultant | Determine EOT, certify claims |
+| Employer | View determination |
+
+**System Rules**
+- Claims auto-attach diary, instructions, programmes
+- Determinations are locked
+
+---
+
+## E6. HSE Screen
+
+| Role | Allowed Actions |
+|------|-----------------|
+| SHO | Create permits, incidents, investigations, close cases |
+| Contractor | Submit toolbox talks, permit requests |
+| Consultant | View & comment |
+| Employer | View only |
+
+**System Rules**
+- All HSE events reference diary
+
+---
+
+## E7. QA/QC Screen
+
+| Role | Allowed Actions |
+|------|-----------------|
+| QAQC | Create IR, NCR, close NCR |
+| Contractor | Submit IR requests, corrective actions |
+| Consultant | Approve inspections, close records |
+| Employer | View only |
+
+---
+
+## E8. Progress Claim & Payment Screen
+
+| Role | Allowed Actions |
+|------|-----------------|
+| Contractor | Prepare & submit progress claim |
+| Subcontractor | Submit subcontract claims |
+| QS | Measure works, certify amounts |
+| Consultant | Issue payment certificate |
+| Employer | Approve payment |
+
+**System Rules**
+- Claims derive quantities from diary + BOQ
+
+---
+
+## E9. Subcontractor Management Screen
+
+| Role | Allowed Actions |
+|------|-----------------|
+| Contractor | Appoint subcontractor, define scope |
+| Subcontractor | Update progress, submit claims |
+| Consultant | View performance |
+| Employer | View only |
+
+---
+
+## E10. Handover & Close‑Out Screen
+
+| Role | Allowed Actions |
+|------|-----------------|
+| Contractor | Submit completion docs, defects rectification |
+| Consultant | Issue CPC / CMGD, certify completion |
+| QS | Final account certification |
+| Employer | Accept handover |
+
+---
+
+## E11. UI / UX Enforcement Rules
+
+- Buttons appear only if role + record state allow
+- Approval buttons require prerequisite records
+- Locked records hide edit actions
+- Full audit trail visible to authorised roles
+
+---
+
+## E12. Master Plan Alignment
+
+This mapping:
+- converts legal authority into UI logic
+- prevents invalid actions at source
+- reduces dispute exposure
+- accelerates developer implementation
+
+**The UI itself becomes a contract-compliance mechanism.**
+
