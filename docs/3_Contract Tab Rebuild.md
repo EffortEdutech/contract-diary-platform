@@ -32,8 +32,8 @@ This revision aligns the wireframe to the **tab-based Contract Page layout** you
 
 | Contract Status | Enabled Tabs |
 |----------------|-------------|
-| Draft | Contract Info, Pre‑Contract, Contract Formation |
-| Active | All except Close‑Out |
+| Draft | All |
+| Active | All |
 | Suspended | View‑only on all tabs |
 | Completed | All tabs (Read‑Only) |
 
@@ -41,7 +41,7 @@ This revision aligns the wireframe to the **tab-based Contract Page layout** you
 
 ### 2. Authority‑Aware Actions
 
-- Tabs are always visible (vision completeness)
+- Tabs and Actions inside tabs are always visible (vision completeness)
 - **Actions inside tabs** are role‑ and status‑gated
 - No tab allows actions outside contractual authority
 
@@ -176,7 +176,6 @@ Quick Actions always:
 ## E. Why This Revision Is Better
 
 This tab‑based wireframe:
-- matches your current UI direction
 - keeps the full lifecycle visible
 - avoids sidebar overload
 - is intuitive for non‑technical users

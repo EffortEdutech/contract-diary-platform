@@ -8,9 +8,6 @@ import DocumentRegister from '../../components/contracts/DocumentRegister';
 import ContractFormationLockPanel from '../../components/contracts/ContractFormationLockPanel';
 import { resolveContractAuthority } from '../../utils/contractAuthority';
 import { useAuth } from '../../contexts/AuthContext';
-import PreContractTenderTab from './detail/tabs/PreContractTenderTab';
-import ContractFormationTab from './detail/tabs/ContractFormationTab';
-import CloseOutArchiveTab from './detail/tabs/CloseOutArchiveTab';
 
 // -----------------------------------------------------------------------------
 // Single Source of Truth: Tabs (ALWAYS visible)
@@ -59,8 +56,6 @@ function ContractDetail() {
   // Formation baseline lock
   const [baselineLockRow, setBaselineLockRow] = useState(null); // row from contract_baseline_locks if exists
   const [baselineLockLoading, setBaselineLockLoading] = useState(false);
-  
-  const [memberRole, setMemberRole] = useState(null);
 
   // ---------------------------------------------------------------------------
   // Load Contract
@@ -120,52 +115,17 @@ function ContractDetail() {
     }
   };
 
-  const loadMyMemberRole = async (contractId) => {
-    if (!user?.id) return;
-
-    const { data, error } = await supabase
-      .from('contract_members')
-      .select('member_role, invitation_status')
-      .eq('contract_id', contractId)
-      .eq('user_id', user.id)
-      .single();
-
-    if (error) {
-      console.error('Failed to load member role:', error);
-      setMemberRole(null);
-      return;
-    }
-
-    // optional: require active invitation
-    if (data?.invitation_status !== 'active') {
-      setMemberRole('readonly');
-      return;
-    }
-
-    setMemberRole(data?.member_role || 'readonly');
-  };
-
-  useEffect(() => {
-    if (!contract?.id) return;
-    loadMyMemberRole(contract.id);
-  }, [contract?.id, user?.id]);
-
   // ---------------------------------------------------------------------------
   // Authority (role/status gating)
-  // ---------------------------------------------------------------------------  
+  // ---------------------------------------------------------------------------
   const authority = useMemo(() => {
-    if (!contract) return null;
-
+    if (!contract || !profile) return null;
     return resolveContractAuthority({
       contractStatus: contract.status,
-      memberRole: memberRole, // ✅ THIS is the correct role
+      userRole: profile.role,
     });
-  }, [contract, memberRole]);
+  }, [contract, profile]);
 
-  useEffect(() => {
-    console.log('AUTH DEBUG:', { memberRole, contractStatus: contract?.status, authority });
-  }, [memberRole, contract?.status, authority]);
-  
   // ---------------------------------------------------------------------------
   // Lock policy (your decision)
   // - Formation baseline locks when:
@@ -330,8 +290,6 @@ function ContractDetail() {
     );
   }
 
-
-
   // ---------------------------------------------------------------------------
   // Tab content renderers
   // ---------------------------------------------------------------------------
@@ -394,24 +352,118 @@ function ContractDetail() {
 
   const renderPreContract = () => {
     return (
-      <PreContractTenderTab
-        contractId={contract.id}
-        authority={authority}
-        isLocked={preContractLocked}
-      />
+      <div className="space-y-6">
+        <div className="bg-white rounded-lg border p-6">
+          <h2 className="text-xl font-semibold mb-2">Pre-Contract & Tender</h2>
+          <p className="text-sm text-gray-600 mb-6">
+            Tender documents, submissions, pre-contract correspondence (read-only once contract is Active).
+          </p>
+
+          <DocumentRegister
+            contractId={contract.id}
+            contractSection="PRE_CONTRACT"
+            isLocked={preContractLocked}
+            authority={authority}
+          />
+        </div>
+
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <p className="text-sm text-blue-800">
+            <strong>Rule:</strong> Pre-Contract becomes read-only once contract status is not <code>draft</code>.
+          </p>
+        </div>
+      </div>
     );
   };
 
-  const renderContractFormation = () => {
+  const renderFormation = () => {
+    const lockReason =
+      AUTO_LOCK_STATUSES.has(contract.status)
+        ? `Auto-locked because status is "${contract.status}".`
+        : baselineLockRow?.is_locked
+          ? 'Locked manually after checklist.'
+          : null;
+
     return (
-      <ContractFormationTab
-        contractId={contract.id}
-        authority={authority}
-        onRefreshContract={fetchContract}
-      />
+      <div className="space-y-6">
+        <div className="bg-white rounded-lg border p-6">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-semibold mb-2">Contract Formation</h2>
+              <p className="text-sm text-gray-600">
+                Core legal baseline documents (LOA, Agreement, Bonds, Insurance, etc.)
+              </p>
+            </div>
+
+            {/* Always visible lock action (vision completeness), but gated */}
+            <button
+              onClick={handleManualBaselineLock}
+              disabled={formationLocked || authority?.isReadOnly}
+              title={
+                formationLocked
+                  ? 'Baseline already locked'
+                  : authority?.isReadOnly
+                    ? 'Read-only mode'
+                    : 'Lock baseline after checklist'
+              }
+              className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+            >
+              🔒 Lock Baseline
+            </button>
+          </div>
+
+          {baselineLockLoading && (
+            <p className="text-xs text-gray-500 mt-3">Checking baseline lock status…</p>
+          )}
+
+          {formationLocked && (
+            <div className="mt-4 bg-amber-50 border border-amber-200 rounded-lg p-4">
+              <p className="text-sm text-amber-900">
+                <strong>Formation Locked:</strong> All Contract Formation documents are now read-only.
+              </p>
+              {lockReason && <p className="text-sm text-amber-800 mt-1">{lockReason}</p>}
+              <p className="text-sm text-amber-800 mt-2">
+                Project Management & Admin continues normally.
+              </p>
+            </div>
+          )}
+
+          <div className="mt-6">
+            <DocumentRegister
+              contractId={contract.id}
+              contractSection="CONTRACT_FORMATION"
+              isLocked={formationLocked}
+              authority={authority}
+            />
+          </div>
+        </div>
+
+        {/* Checklist panel (visible when not locked) */}
+        {!formationLocked && (
+          <div className="bg-white rounded-lg border p-6">
+            <ContractFormationLockPanel
+              contractId={contract.id}
+              onLockSuccess={async () => {
+                // If your panel creates lock row or updates status, refresh
+                await fetchContract();
+                await loadBaselineLock(contract.id);
+              }}
+            />
+
+            <div className="mt-4 bg-amber-50 border border-amber-200 rounded-lg p-4">
+              <h4 className="font-medium text-amber-900 mb-2">Baseline Process</h4>
+              <ol className="text-sm text-amber-800 space-y-1 ml-4 list-decimal">
+                <li>Upload all Formation documents</li>
+                <li>Verify completeness and correctness</li>
+                <li>Lock baseline (manual) OR activate the contract (auto-lock)</li>
+                <li>Future changes are tracked via variations/admin actions</li>
+              </ol>
+            </div>
+          </div>
+        )}
+      </div>
     );
   };
-
 
   const renderProjectManagement = () => {
     // Management continues even if formationLocked is true.
@@ -533,13 +585,33 @@ function ContractDetail() {
     );
   };
 
-  const renderCloseOut = () => (
-    <CloseOutArchiveTab
-      contractId={contract.id}
-      authority={authority}
-      isLocked={false} // later: true when contract is archived
-    />
-  );
+  const renderCloseOut = () => {
+    return (
+      <div className="space-y-6">
+        <div className="bg-white rounded-lg border p-6">
+          <h2 className="text-xl font-semibold mb-2">Close-Out & Archive</h2>
+          <p className="text-sm text-gray-600 mb-6">
+            As-builts, warranties, completion certs, final account, archive index.
+          </p>
+
+          <DocumentRegister
+            contractId={contract.id}
+            contractSection="CLOSE_OUT"
+            isLocked={closeOutLocked}
+            authority={authority}
+          />
+        </div>
+
+        {closeOutLocked && (
+          <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+            <p className="text-sm text-purple-800">
+              <strong>Archive Mode:</strong> Close-out is read-only because status is “{contract.status}”.
+            </p>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const renderTabContent = () => {
     switch (activeTab) {
@@ -548,7 +620,7 @@ function ContractDetail() {
       case 'pre-contract':
         return renderPreContract();
       case 'contract-formation':
-        return renderContractFormation ();
+        return renderFormation();
       case 'project-management':
         return renderProjectManagement();
       case 'close-out':
