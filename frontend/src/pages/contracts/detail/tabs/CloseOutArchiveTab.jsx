@@ -7,6 +7,7 @@ const Section = ({ title, children, defaultOpen = true }) => {
   return (
     <div className="bg-white border rounded-lg overflow-hidden">
       <button
+        type="button"
         onClick={() => setOpen((v) => !v)}
         className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100"
       >
@@ -25,39 +26,61 @@ const CloseOutArchiveTab = ({ contractId, authority, isLocked }) => {
       <div className="bg-white border rounded-lg p-6">
         <h2 className="text-xl font-semibold mb-2">🔒 Close-Out & Archive</h2>
         <p className="text-sm text-gray-600">
-          Close-out is sequential. Start with Practical Completion documents, then DLP, Final Account, and Archive.
+          Close-out is sequential: Completion Docs → PC/CPC → DLP → Final Account → Archive.
         </p>
       </div>
 
-      <Section title="🏗️ Practical Completion (PC) / CPC">
+      {/* A) Project Completion Documents (seed templates next) */}
+      <Section title="📦 Project Completion Documents" defaultOpen={true}>
         <DocumentChecklistRegister
           contractId={contractId}
           lifecycleStage="CLOSE_OUT"
-          sectionCode="PC_STAGE"
+          sectionCode="CO_COMPLETION_DOCS"
+          contractSection="CLOSE_OUT"
+          isLocked={isLocked}
+          authority={authority}
+        />
+        <div className="mt-2 text-xs text-gray-500">
+          If empty: seed templates for section_code <code>CO_COMPLETION_DOCS</code>.
+        </div>
+      </Section>
+
+      {/* B) Practical Completion / CPC (NEW correct code) */}
+      <Section title="🏗️ Practical Completion (PC) / CPC" defaultOpen={true}>
+        <DocumentChecklistRegister
+          contractId={contractId}
+          lifecycleStage="CLOSE_OUT"
+          sectionCode="CO_PC_CPC"
           contractSection="CLOSE_OUT"
           isLocked={isLocked}
           authority={authority}
         />
       </Section>
 
-      {/* Next sections will be added after we seed templates:
-          - DLP_STAGE
-          - FINAL_ACCOUNT
-          - FINAL_CERT
-          - RETENTION_RELEASE
-          - BOND_RELEASE
-          - DISPUTE_RECORDS
-          - ARCHIVE_STAGE
-      */}
-      <Section title="🔧 Defects Liability Period (DLP) (Next)">
-        <div className="text-sm text-gray-600">
-          Coming next: checklist + defects tracker module.
-        </div>
+      {/* C) DLP */}
+      <Section title="🔧 Defects Liability Period (DLP)" defaultOpen={false}>
+        <DocumentChecklistRegister
+          contractId={contractId}
+          lifecycleStage="CLOSE_OUT"
+          sectionCode="CO_DLP"
+          contractSection="CLOSE_OUT"
+          isLocked={isLocked}
+          authority={authority}
+        />
       </Section>
 
-      <Section title="🗄️ Archive Contract (Next)">
-        <div className="text-sm text-gray-600">
-          Coming next: “Make Immutable Archive” action + summary.
+      {/* D) Archive (seed templates next) */}
+      <Section title="🗄️ Archive Contract" defaultOpen={false}>
+        <DocumentChecklistRegister
+          contractId={contractId}
+          lifecycleStage="CLOSE_OUT"
+          sectionCode="CO_ARCHIVE"
+          contractSection="CLOSE_OUT"
+          isLocked={isLocked}
+          authority={authority}
+        />
+        <div className="mt-2 text-xs text-gray-500">
+          Coming soon: “Make Immutable Archive” action + summary generation.
         </div>
       </Section>
     </div>

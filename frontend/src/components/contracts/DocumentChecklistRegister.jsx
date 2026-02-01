@@ -5,6 +5,7 @@ import DocumentUploadModal from './DocumentUploadModal';
 import PdfViewerModal from './PdfViewerModal';
 import { documentService } from '../../services/documentService';
 import DocumentVersionsModal from './DocumentVersionsModal';
+import { useNavigate } from 'react-router-dom';
 
 /**
  * DocumentChecklistRegister
@@ -15,7 +16,7 @@ import DocumentVersionsModal from './DocumentVersionsModal';
  * Props:
  * - contractId (uuid)
  * - lifecycleStage: PRE_CONTRACT | CONTRACT_FORMATION | PROJECT_MANAGEMENT | CLOSE_OUT
- * - sectionCode: e.g. EMPLOYER_DOCS, TENDER_DOCS, FORMATION_DOCS, PC_STAGE
+ * - sectionCode: e.g. EMPLOYER_DOCS, TENDER_DOCS, FORMATION_DOCS, PM_GENERAL_ADMIN, etc.
  * - contractSection: enum used by contract_documents.contract_section
  * - isLocked: boolean (section-level lock)
  * - authority: contract authority object (role/status gating)
@@ -27,6 +28,7 @@ const DocumentChecklistRegister = ({
   contractSection,
   isLocked = false,
   authority,
+  onOpenModule, 
 }) => {
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState([]);
@@ -41,18 +43,85 @@ const DocumentChecklistRegister = ({
   const [pdfUrl, setPdfUrl] = useState(null);
   const [pdfTitle, setPdfTitle] = useState('');
 
+  // Versions modal
   const [versionsOpen, setVersionsOpen] = useState(false);
   const [selectedDocForVersions, setSelectedDocForVersions] = useState(null);
 
-  // ✅ single source of truth for upload gating
-  const canUpload = !!authority?.canUploadDocument && !authority?.isReadOnly && !isLocked;
+  const navigate = useNavigate();
 
-  const statusBadge = (kind) => {
+  // Upload permission (single source of truth)
+  // If your authority object has canUploadDocument, use it; otherwise fallback to "not read-only"
+  const canUploadBase =
+    (authority?.canUploadDocument ?? true) && !authority?.isReadOnly && !isLocked;
+
+  const statusBadge = (kind, dataType) => {
     const base = 'inline-flex items-center px-2 py-1 rounded-full text-xs font-medium';
-    if (kind === 'LOCKED') return <span className={`${base} bg-amber-100 text-amber-800`}>Locked</span>;
-    if (kind === 'UPLOADED') return <span className={`${base} bg-green-100 text-green-800`}>Uploaded</span>;
-    return <span className={`${base} bg-gray-100 text-gray-700`}>Pending</span>;
+
+    // PDF logic (unchanged)
+    if (dataType === 'PDF') {
+      if (kind === 'LOCKED')
+        return <span className={`${base} bg-amber-100 text-amber-800`}>Locked</span>;
+      if (kind === 'UPLOADED')
+        return <span className={`${base} bg-green-100 text-green-800`}>Uploaded</span>;
+      return <span className={`${base} bg-gray-100 text-gray-700`}>Pending</span>;
+    }
+
+    // PF / IMP / HYB logic
+    return (
+      <span className={`${base} bg-blue-50 text-blue-700 border border-blue-200`}>
+        Module
+      </span>
+    );
   };
+
+  const typeBadge = (dataType) => {
+    const base = 'inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border';
+    if (dataType === 'PDF') return <span className={`${base} border-blue-200 bg-blue-50 text-blue-700`}>PDF</span>;
+    if (dataType === 'PF') return <span className={`${base} border-green-200 bg-green-50 text-green-700`}>PF</span>;
+    if (dataType === 'IMP') return <span className={`${base} border-purple-200 bg-purple-50 text-purple-700`}>IMP</span>;
+    if (dataType === 'HYB') return <span className={`${base} border-teal-200 bg-teal-50 text-teal-700`}>HYB</span>;
+    return <span className={`${base} border-gray-200 bg-gray-50 text-gray-700`}>{dataType || 'N/A'}</span>;
+  };
+
+  const getPrimaryAction = (dataType) => {
+    if (dataType === 'PDF') return { label: 'Upload', kind: 'UPLOAD' };
+    if (dataType === 'PF') return { label: 'Open', kind: 'OPEN' };
+    if (dataType === 'IMP') return { label: 'Import', kind: 'IMPORT' };
+    if (dataType === 'HYB') return { label: 'Generate', kind: 'GENERATE' };
+    return { label: 'Upload', kind: 'UPLOAD' };
+  };
+
+  const MODULE_ROUTE_BY_SECTION = {
+    // Diary module (your quick actions “Daily Diaries”)
+    PM_DIARY: (contractId) => `/contracts/${contractId}/diary`,
+
+    // Example placeholders (change to your real routes if different)
+    PM_COMMERCIAL: (contractId) => `/contracts/${contractId}/claims`,
+    PM_TECHNICAL_DOCS: (contractId) => `/contracts/${contractId}/technical`,
+    PM_QAQC: (contractId) => `/contracts/${contractId}/qaqc`,
+    PM_HSE: (contractId) => `/contracts/${contractId}/hse`,
+  };
+
+  const openModule = (template) => {
+    const fn = MODULE_ROUTE_BY_SECTION?.[template?.section_code];
+    if (!fn) {
+      alert('Module route not configured yet for this section.');
+      return;
+    }
+    navigate(fn(contractId));
+  };
+
+  const handleModuleAction = (template) => {
+    // Parent takes priority (so it can open modal)
+    if (typeof onOpenModule === 'function') {
+      const handled = onOpenModule(template);
+      // if parent returns true, it handled it; if false/undefined, fallback
+      if (handled === true) return;
+    }
+
+    // Fallback: use internal route map (your current behavior)
+    openModule(template);
+  };  
 
   const load = useCallback(async () => {
     if (!contractId) return;
@@ -61,7 +130,7 @@ const DocumentChecklistRegister = ({
     setError(null);
 
     try {
-      // 1) Load contract-specific checklist + template join
+      // 1) Load required checklist + template join
       const { data: required, error: reqErr } = await supabase
         .from('contract_required_documents')
         .select(`
@@ -91,14 +160,6 @@ const DocumentChecklistRegister = ({
         .filter((r) => r.template?.section_code === sectionCode);
 
       const templateIds = filtered.map((r) => r.template?.id).filter(Boolean);
-
-      console.log('CHECKLIST DEBUG', {
-        lifecycleStage,
-        sectionCode,
-        requiredTotal: required?.length,
-        filteredCount: filtered?.length,
-        sample: filtered?.[0],
-      });
 
       // 2) Load uploaded docs for these templates (current only)
       const docsByTemplate = new Map();
@@ -173,12 +234,13 @@ const DocumentChecklistRegister = ({
     try {
       if (!doc) return;
 
-      console.log('VIEW DOC:', doc);
+      // IMPORTANT RULE: always use storage_path for signed URL
+      if (!doc.storage_path) {
+        alert('No storage path found for this document (cannot generate signed URL).');
+        return;
+      }
 
-      const signedUrl = await documentService.getSignedViewUrl(
-        doc.storage_path || doc.file_url,
-        60 * 10
-      );
+      const signedUrl = await documentService.getSignedViewUrl(doc.storage_path, 60 * 10);
 
       setPdfTitle(doc.document_title || doc.file_name || 'Document');
       setPdfUrl(signedUrl);
@@ -189,17 +251,13 @@ const DocumentChecklistRegister = ({
     }
   };
 
-
   const openVersions = (doc) => {
     if (!doc?.id) return;
     setSelectedDocForVersions(doc);
     setVersionsOpen(true);
   };
 
-
-  const sectionTitle = useMemo(() => {
-    return rows?.[0]?.template?.section_title || '';
-  }, [rows]);
+  const sectionTitle = useMemo(() => rows?.[0]?.template?.section_title || '', [rows]);
 
   if (loading) {
     return <div className="animate-pulse bg-gray-100 rounded-lg h-24" />;
@@ -220,9 +278,9 @@ const DocumentChecklistRegister = ({
 
       <div className="bg-white border rounded-lg overflow-hidden">
         <div className="grid grid-cols-12 bg-gray-50 text-xs font-semibold text-gray-600 px-4 py-2">
-          <div className="col-span-6">Item</div>
+          <div className="col-span-7">Item</div>
           <div className="col-span-2">Status</div>
-          <div className="col-span-4 text-right">Actions</div>
+          <div className="col-span-3 text-right">Actions</div>
         </div>
 
         {rows.length === 0 ? (
@@ -231,55 +289,110 @@ const DocumentChecklistRegister = ({
           </div>
         ) : (
           rows.map((r) => {
-            const title = r.template?.item_title || '(Untitled)';
-            const desc = r.template?.description;
+            const t = r.template;
+            const title = t?.item_title || '(Untitled)';
+            const desc = t?.description;
+            const dataType = t?.data_type; // PF / PDF / IMP / HYB
 
             const doc = r.doc;
             const isRowLocked = isLocked || authority?.isReadOnly || r.state === 'LOCKED';
 
+            // Only PDF supports upload now
+            const canUploadThisItem = canUploadBase && dataType === 'PDF';
+
             return (
-              <div key={r.template?.id} className="grid grid-cols-12 px-4 py-3 border-t items-center">
-                <div className="col-span-6">
-                  <div className="text-sm font-medium text-gray-900">{title}</div>
+              <div key={t?.id} className="grid grid-cols-12 px-4 py-3 border-t items-center">
+                <div className="col-span-7">
+                  <div className="flex items-center gap-2">
+                    <div className="text-sm font-medium text-gray-900">{title}</div>
+                    {typeBadge(dataType)}
+                  </div>
                   {desc && <div className="text-xs text-gray-500 mt-0.5">{desc}</div>}
                 </div>
 
-                <div className="col-span-2">{statusBadge(r.state)}</div>
+                <div className="col-span-2">
+                  {statusBadge(r.state, dataType)}
+                </div>
 
-                <div className="col-span-4 flex justify-end gap-2">
-                  <button
-                    onClick={() => handleView(doc)}
-                    disabled={!doc}
-                    className="px-3 py-1.5 text-xs rounded-lg border border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                    title={doc ? 'View uploaded document' : 'No document uploaded'}
-                  >
-                    View
-                  </button>
+                <div className="col-span-3 flex justify-end gap-2">
+                  {/* =========================
+                      ACTIONS BY DATA TYPE
+                      - PDF: View / Upload / Versions
+                      - PF: Open (navigate to module)
+                      - IMP: Import (placeholder)
+                      - HYB: Generate (placeholder)
+                    ========================= */}
 
-                  <button
-                    onClick={() => openUpload(r.template)}
-                    disabled={!canUpload || isRowLocked}
-                    className="px-3 py-1.5 text-xs rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
-                    title={
-                      !canUpload
-                        ? 'Upload disabled (no permission / read-only / section locked)'
-                        : isRowLocked
-                        ? 'Locked (baseline/section/doc)'
-                        : 'Upload PDF for this item'
-                    }
-                  >
-                    Upload
-                  </button>
+                  {dataType === 'PDF' ? (
+                    <>
+                      {/* View */}
+                      <button
+                        onClick={() => handleView(doc)}
+                        disabled={!doc}
+                        className="px-3 py-1.5 text-xs rounded-lg border border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        title={doc ? 'View uploaded document' : 'No document uploaded'}
+                      >
+                        View
+                      </button>
 
-                  <button
-                    onClick={() => openVersions(doc)}
-                    disabled={!doc}
-                    className="px-3 py-1.5 text-xs rounded-lg border border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                    title={doc ? 'View version history' : 'No document uploaded'}
-                  >
-                    Versions
-                  </button>
+                      {/* Upload */}
+                      <button
+                        onClick={() => openUpload(t)}
+                        disabled={!canUploadThisItem || isRowLocked}
+                        className="px-3 py-1.5 text-xs rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                        title={
+                          !canUploadThisItem
+                            ? 'Upload disabled (not PDF / no permission / locked)'
+                            : isRowLocked
+                            ? 'Locked (baseline/section/doc)'
+                            : 'Upload PDF'
+                        }
+                      >
+                        Upload
+                      </button>
 
+                      {/* Versions */}
+                      <button
+                        onClick={() => openVersions(doc)}
+                        disabled={!doc}
+                        className="px-3 py-1.5 text-xs rounded-lg border border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        title={doc ? 'View version history' : 'No document uploaded'}
+                      >
+                        Versions
+                      </button>
+                    </>
+                    ) : dataType === 'PF' ? (
+                      <button
+                        type="button"
+                        onClick={() => handleModuleAction(t)}
+                        disabled={isLocked || authority?.isReadOnly}
+                        className="px-3 py-1.5 text-xs rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                        title="Open module"
+                      >
+                        Open
+                      </button>
+                    ) : dataType === 'IMP' ? (
+                      <button
+                        type="button"
+                        onClick={() => handleModuleAction(t)}
+                        disabled={isLocked || authority?.isReadOnly}
+                        className="px-3 py-1.5 text-xs rounded-lg bg-purple-600 text-white hover:bg-purple-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                        title="Open import module"
+                      >
+                        Open
+                      </button>
+                    ) : (
+                      // HYB
+                      <button
+                        type="button"
+                        onClick={() => handleModuleAction(t)}
+                        disabled={isLocked || authority?.isReadOnly}
+                        className="px-3 py-1.5 text-xs rounded-lg bg-teal-600 text-white hover:bg-teal-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                        title="Open generator"
+                      >
+                        Open
+                      </button>
+                    )}
                 </div>
               </div>
             );
@@ -287,7 +400,7 @@ const DocumentChecklistRegister = ({
         )}
       </div>
 
-      {/* Upload modal */}
+      {/* Upload modal (PDF only) */}
       <DocumentUploadModal
         isOpen={uploadOpen}
         onClose={closeUpload}
@@ -310,6 +423,7 @@ const DocumentChecklistRegister = ({
         url={pdfUrl}
       />
 
+      {/* Versions modal */}
       <DocumentVersionsModal
         isOpen={versionsOpen}
         onClose={() => {
@@ -319,16 +433,14 @@ const DocumentChecklistRegister = ({
         documentId={selectedDocForVersions?.id}
         documentTitle={selectedDocForVersions?.document_title || selectedDocForVersions?.file_name}
         isLocked={!!selectedDocForVersions?.is_locked || isLocked || authority?.isReadOnly}
-        canUploadNewVersion={!!authority?.canUploadNewVersion}   // if you have this flag
-        onUploaded={() => load()}                                // refresh checklist
+        canUploadNewVersion={!!authority?.canUploadNewVersion}
+        onUploaded={() => load()}
         onViewPdf={(title, url) => {
           setPdfTitle(title);
           setPdfUrl(url);
           setPdfModalOpen(true);
         }}
       />
-
-
     </div>
   );
 };

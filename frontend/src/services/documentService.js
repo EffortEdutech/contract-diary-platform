@@ -73,7 +73,8 @@ export const DOCUMENT_TYPE_LABELS = {
 export const SECTION_LABELS = {
   'PRE_CONTRACT': 'Pre-Contract',
   'CONTRACT_FORMATION': 'Contract Formation',
-  'CLOSE_OUT': 'Close-Out'
+  'CLOSE_OUT': 'Close-Out',
+  'PROJECT_MANAGEMENT': 'Project Management & Admin'
 };
 
 // Status Labels

@@ -35,6 +35,8 @@ import ClaimDetail from './pages/claims/ClaimDetail';
 // Reports component - NEW!
 import Reports from './pages/reports/Reports';
 
+import WorkProgrammePage from './pages/contracts/WorkProgrammePage';
+
 function App() {
   return (
     <Router>
@@ -196,7 +198,7 @@ function App() {
             }
           />
 
-          {/* Reports Routes - NEW! */}
+          {/* reports Routes - NEW! */}
           <Route
             path="/contracts/:contractId/reports"
             element={
@@ -208,7 +210,7 @@ function App() {
             }
           />
 
-          {/* Reports Routes - NEW! */}
+          {/* members Routes - NEW! */}
           <Route
             path="/contracts/:contractId/members"
             element={
@@ -231,6 +233,20 @@ function App() {
               </ProtectedRoute>
             }
           />          
+
+          {/*<Route path="/contracts/:id/programme" element={<WorkProgrammePage />} />*/}
+          {/* WorkProgrammePage Routes - NEW! */}
+          <Route
+            path="/contracts/:id/programme"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <WorkProgrammePage  />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />      
+
 
           {/* Settings Routes - NEW! */}
           <Route path="/accept-invitation" element={<AcceptInvitation />} />

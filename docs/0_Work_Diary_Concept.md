@@ -1874,7 +1874,7 @@ This classification:
 
 # Appendix H – Detailed Contract Items × Data Representation Matrix
 
-This table explicitly maps **each contract item you listed** to its **recommended Data Representation Type**, with short rationale. This is the authoritative reference for developers.
+This table explicitly maps **each contract item** to its **recommended Data Representation Type**, with short rationale. This is the authoritative reference for developers.
 
 Legend:
 - **PF** = Platform Form  
@@ -2112,6 +2112,22 @@ Legend:
 | Completion Report | HYB | Generated |
 | Archive Index | PF | Retrieval |
 
+
+
+🏗️ Practical Completion (PC) / CPC                                ▾
+Practical Completion (PC) / CPC
+PC Application Letter
+List of Outstanding Works
+Statutory Compliance (CF/CCC/BOMBA/etc.)
+As-Built Drawings (Preliminary)
+M&E Completion Certificate
+Certificate of Practical Completion (CPC/PC Certificate)
+
 ---
 
+🔧 Defects Liability Period (DLP) (Next)
+checklist + defects tracker module.
+
+🗄️ Archive Contract (Next)
+“Make Immutable Archive” action + summary.
 > **Rule of thumb:** If it drives workflow → PF. If it sets legal baseline → PDF. If it carries quantities or logic → IMP. If it is an outcome → HYB.

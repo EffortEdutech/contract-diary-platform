@@ -11,6 +11,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import PreContractTenderTab from './detail/tabs/PreContractTenderTab';
 import ContractFormationTab from './detail/tabs/ContractFormationTab';
 import CloseOutArchiveTab from './detail/tabs/CloseOutArchiveTab';
+import ProjectManagementAdminTab from './detail/tabs/ProjectManagementAdminTab';
+import WorkProgrammeModal from '../../components/contracts/WorkProgrammeModal';
 
 // -----------------------------------------------------------------------------
 // Single Source of Truth: Tabs (ALWAYS visible)
@@ -61,6 +63,7 @@ function ContractDetail() {
   const [baselineLockLoading, setBaselineLockLoading] = useState(false);
   
   const [memberRole, setMemberRole] = useState(null);
+  // const [programmeOpen, setProgrammeOpen] = useState(false);
 
   // ---------------------------------------------------------------------------
   // Load Contract
@@ -194,6 +197,21 @@ function ContractDetail() {
     // Close-out becomes archive read-only when completed (or later)
     return ['completed', 'terminated', 'archived'].includes(contract.status);
   }, [contract]);
+
+  const isProgrammeLocked = useMemo(() => {
+    // Programme stays editable even if Formation baseline locked.
+    // Only lock if contract is archived/terminated OR explicit baseline lock row says lock all.
+    if (!contract) return false;
+
+    // Strong lock states (your choice)
+    if (['archived'].includes(contract.status)) return true;
+
+    // Optional: if you later add scope column: 'FORMATION_ONLY' vs 'ALL'
+    // For now: baselineLockRow locks Formation only, so programme remains editable.
+    return false;
+  }, [contract, baselineLockRow]);
+
+
 
   // ---------------------------------------------------------------------------
   // Actions
@@ -412,126 +430,16 @@ function ContractDetail() {
     );
   };
 
-
-  const renderProjectManagement = () => {
-    // Management continues even if formationLocked is true.
-    // We keep “structure visible”; per-module actions can be implemented later.
-    const goToDiaries = () => navigate(`/contracts/${contract.id}/diaries`);
-
-    return (
-      <div className="space-y-6">
-        <div className="bg-white rounded-lg border p-4">
-          <div className="flex gap-2 overflow-x-auto">
-            {PM_SUBSECTIONS.map((s) => (
-              <button
-                key={s.id}
-                onClick={() => setActiveSubSection(s.id)}
-                className={`px-4 py-2 rounded-lg text-sm whitespace-nowrap border ${
-                  activeSubSection === s.id
-                    ? 'bg-blue-50 border-blue-300 text-blue-700'
-                    : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
-                }`}
-              >
-                <span className="mr-2">{s.icon}</span>
-                {s.name}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Sub-section content (placeholders but visible) */}
-        {activeSubSection === 'planning' && (
-          <div className="bg-white rounded-lg border p-6">
-            <h2 className="text-xl font-semibold mb-2">Planning & Scheduling</h2>
-            <p className="text-sm text-gray-600 mb-4">
-              Programme uploads and revisions (imported data) – coming soon.
-            </p>
-
-            {/* Vision completeness: buttons visible but disabled */}
-            <div className="flex gap-3">
-              <button
-                disabled
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg cursor-not-allowed"
-                title="Coming soon"
-              >
-                Upload Baseline Programme
-              </button>
-              <button
-                disabled
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg cursor-not-allowed"
-                title="Coming soon"
-              >
-                Upload Revised Programme
-              </button>
-            </div>
-          </div>
-        )}
-
-        {activeSubSection === 'diary' && (
-          <div className="bg-white rounded-lg border p-6">
-            <h2 className="text-xl font-semibold mb-2">Site Diary & Daily Records</h2>
-            <p className="text-sm text-gray-600 mb-4">
-              Diary is the factual anchor of the platform.
-            </p>
-
-            <div className="flex gap-3">
-              <button
-                onClick={goToDiaries}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-              >
-                Open Diaries
-              </button>
-            </div>
-          </div>
-        )}
-
-        {activeSubSection === 'technical' && (
-          <div className="bg-white rounded-lg border p-6">
-            <h2 className="text-xl font-semibold mb-2">Technical & Construction Docs</h2>
-            <p className="text-sm text-gray-600 mb-6">
-              Drawings, method statements, specs, submissions (PDF register).
-            </p>
-
-            <DocumentRegister
-              contractId={contract.id}
-              contractSection="PROJECT_MANAGEMENT"
-              isLocked={false}
-              authority={authority}
-            />
-          </div>
-        )}
-
-        {/* Other PM sections: keep visible placeholders */}
-        {['hse', 'qaqc', 'commercial', 'subcontract', 'statutory', 'testing'].includes(activeSubSection) && (
-          <div className="bg-white rounded-lg border p-6">
-            <h2 className="text-xl font-semibold mb-2">
-              {PM_SUBSECTIONS.find((x) => x.id === activeSubSection)?.name}
-            </h2>
-            <p className="text-sm text-gray-600 mb-4">
-              Module structure is visible; actions will be implemented with role/status gating.
-            </p>
-
-            <div className="flex gap-3 flex-wrap">
-              <button
-                disabled
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg cursor-not-allowed"
-                title="Coming soon"
-              >
-                Create Platform Record
-              </button>
-              <button
-                disabled
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg cursor-not-allowed"
-                title="Coming soon"
-              >
-                Upload Supporting PDF
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  };
+  const renderProjectManagement = () => (
+    <ProjectManagementAdminTab
+      contractId={contract.id}
+      authority={authority}
+      onOpenWorkProgramme={() =>
+        navigate(`/contracts/${contract.id}/programme`)
+      }
+      isLocked={false}
+    />
+  );
 
   const renderCloseOut = () => (
     <CloseOutArchiveTab
@@ -716,12 +624,14 @@ function ContractDetail() {
             </button>
 
             {/* Work Programme */}
-            <button className="p-4 border-2 border-purple-200 rounded-lg hover:border-purple-500 hover:bg-purple-50 transition-colors text-left">
+            <button
+              onClick={() => navigate(`/contracts/${id}/programme`)}
+              className="p-4 border-2 border-purple-200 rounded-lg hover:border-purple-500 hover:bg-purple-50 transition-colors text-left">
               <svg className="w-6 h-6 text-purple-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
               <p className="font-medium text-gray-900">Work Programme</p>
-              <p className="text-sm text-gray-600">Coming Soon</p>
+              <p className="text-sm text-gray-600">Open</p>
             </button>
 
             {/* Team Members */}
