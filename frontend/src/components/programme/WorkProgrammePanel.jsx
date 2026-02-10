@@ -864,7 +864,16 @@ return (
 
       </div>
     )}
+
+    <ImportProgrammeModal
+      isOpen={importOpen}
+      onClose={() => setImportOpen(false)}
+      contractId={contractId}
+      programmeVersionNumber={selectedVersionNo}
+      canEdit={canEdit}
+      onImported={() => loadItems(selectedVersionNo)}
+    />
+
   </div>
 );
-
 }
