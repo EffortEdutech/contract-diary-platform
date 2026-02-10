@@ -10,7 +10,7 @@
 // - Kept only Home + Settings icons on right
 // ============================================
 
-import React, { useState, useEffect, useCallback} from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
@@ -23,18 +23,25 @@ function Layout({ children }) {
   const [userRole, setUserRole] = useState(null);
   const [contractCount, setContractCount] = useState(0);
 
-  const loadUserInfo = useCallback(async () => {
-    if (!user?.id) return; // Guard clause
+  useEffect(() => {
+    if (user?.id) {
+      loadUserInfo();
+    }
+  }, [user]);
+
+  const loadUserInfo = async () => {
     try {
+      // Get user role
       const { data: profiles } = await supabase
         .from('user_profiles')
-        .select('user_role')
+        .select('role')
         .eq('id', user.id);
 
-      if (profiles?.length > 0) {
+      if (profiles && profiles.length > 0) {
         setUserRole(profiles[0].role);
       }
 
+      // Get contract count
       const { data: memberships } = await supabase
         .from('contract_members')
         .select('contract_id')
@@ -44,11 +51,7 @@ function Layout({ children }) {
     } catch (error) {
       console.error('Error loading user info:', error);
     }
-  }, [user?.id]); // 2. Add stable dependencies here
-
-  useEffect(() => {
-    loadUserInfo();
-  }, [loadUserInfo]); 
+  };
 
   const handleSignOut = async () => {
     await signOut();
