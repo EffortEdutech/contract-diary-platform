@@ -6,6 +6,8 @@ import { supabase } from '../../lib/supabase';
 import WorkProgrammePanel from '../../components/programme/WorkProgrammePanel';
 import { useAuth } from '../../contexts/AuthContext';
 import { resolveContractAuthority } from '../../utils/contractAuthority';
+import BoqProgrammeLinkModal from '../../components/links/BoqProgrammeLinkModal';
+import ProgrammeBoqLinkModal from '../../components/links/ProgrammeBoqLinkModal';
 
 export default function WorkProgrammePage() {
   const { id: contractId } = useParams();
@@ -17,6 +19,9 @@ export default function WorkProgrammePage() {
 
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
+  const [showBoqProgrammeModal, setShowBoqProgrammeModal] = useState(false);
+  const [linkTargetProgrammeId, setLinkTargetProgrammeId] = useState(null);
+  const [showProgrammeBoqModal, setShowProgrammeBoqModal] = useState(false);
 
   useEffect(() => {
     if (!contractId) return;
@@ -155,11 +160,42 @@ export default function WorkProgrammePage() {
             <span className="font-semibold text-gray-700">{memberRole || 'unknown'}</span>
           </div>
         </div>
+          <button
+            onClick={() => {
+              setLinkTargetProgrammeId(null);
+              setShowProgrammeBoqModal(true);
+            }}
+            className="px-4 py-2 rounded-lg bg-gray-900 text-white hover:bg-black"
+          >
+            🔗 BOQ Mapping
+          </button>
       </div>
 
       <div className="mt-4">
         <WorkProgrammePanel contractId={contractId} authority={authority} isLocked={isLocked} />
       </div>
+
+      <BoqProgrammeLinkModal
+        isOpen={showBoqProgrammeModal}
+        // onClose={() => setShowBoqProgrammeModal(false)}
+        onClose={() => {
+          setShowBoqProgrammeModal(false);
+          setLinkTargetProgrammeId(null);
+        }}        
+        contractId={contractId}
+        initialProgrammeItemId={linkTargetProgrammeId}
+      />
+
+      <ProgrammeBoqLinkModal
+        isOpen={showProgrammeBoqModal}
+        onClose={() => {
+          setShowProgrammeBoqModal(false);
+          setLinkTargetProgrammeId(null);
+        }}
+        contractId={contractId}
+        initialProgrammeItemId={linkTargetProgrammeId}
+      />
+
     </div>
   );
 }

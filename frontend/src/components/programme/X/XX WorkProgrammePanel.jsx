@@ -818,20 +818,7 @@ return (
                                 </td>
 
                                 <td className="px-4 py-3 text-sm text-gray-700">
-                                <div className="flex items-center gap-2">
-                                    <div className="w-24 bg-gray-100 rounded-full h-2 overflow-hidden">
-                                    <div
-                                        className="bg-green-600 h-2"
-                                        style={{ width: `${Number(actualProgressMap[it.id] || 0)}%` }}
-                                    />
-                                    </div>
-                                    <div className="text-xs w-10 text-right">
-                                    {Number(actualProgressMap[it.id] || 0).toFixed(2)}%
-                                    </div>
-                                </div>
-                                <div className="mt-1 text-[11px] text-gray-500">
-                                    From diaries (Σ progress_update)
-                                </div>
+                                {Number(actualProgressMap[it.id] || 0).toFixed(2)}%
                                 </td>
 
                                 <td className="px-4 py-3 text-right">

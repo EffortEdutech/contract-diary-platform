@@ -11,7 +11,6 @@ import {
   deleteProgrammeItem,
 } from '../../services/programmeService';
 import ImportProgrammeModal from '../contracts/ImportProgrammeModal';
-import { supabase } from '../../lib/supabase';
 
 // ------------------------------------------------------------
 // Tree helpers
@@ -125,8 +124,6 @@ export default function WorkProgrammePanel({
   const [criticalOnly, setCriticalOnly] = useState(false);
   const [hideCompleted, setHideCompleted] = useState(false);
 
-  const [actualProgressMap, setActualProgressMap] = useState({}); // { programme_item_id: number }
-
   // ------------------------------------------------------------
   // Load versions and pick default
   // ------------------------------------------------------------
@@ -193,40 +190,6 @@ export default function WorkProgrammePanel({
       setItems([]);
     }
   };
-
-    useEffect(() => {
-    const loadActual = async () => {
-        if (!contractId) return;
-
-        // 1) Try view (best)
-        const { data, error } = await supabase
-        .from('v_programme_actual_progress')
-        .select('programme_item_id, actual_percent_to_date')
-        .eq('contract_id', contractId);
-
-        if (!error) {
-        const map = {};
-        (data || []).forEach(r => {
-            map[r.programme_item_id] = Number(r.actual_percent_to_date || 0);
-        });
-        setActualProgressMap(map);
-        return;
-        }
-
-        // 2) Fallback if view missing (still Sprint 2C compliant)
-        const { data: rows, error: e2 } = await supabase
-        .from('diary_programme_links')
-        .select('programme_item_id, progress_update')
-        .eq('diary_id', null); // placeholder to avoid accidental full table scan
-        // NOTE: We'll replace this fallback with a proper contract-filtered one once your view exists.
-
-        console.warn('[WorkProgrammePanel] v_programme_actual_progress not available yet:', error);
-        setActualProgressMap({});
-    };
-
-    loadActual();
-    }, [contractId]);
-
 
   useEffect(() => {
     loadVersionsAndPick();
@@ -428,7 +391,6 @@ return (
         {/* ===================================================== */}
         {/* Programme Versions (collapsible) */}
         {/* ===================================================== */}
-        
         <div className="bg-white border rounded-lg overflow-hidden">
           <button
             type="button"
@@ -528,7 +490,7 @@ return (
 
         {/* ===================================================== */}
         {/* Activities / WBS (collapsible, full width) */}
-        {/* ===================================================== */}       
+        {/* ===================================================== */}
         <div className="bg-white border rounded-lg overflow-hidden">
           <button
             type="button"
@@ -733,8 +695,7 @@ return (
                             <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">WBS</th>
                             <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Description</th>
                             <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Planned</th>
-                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Planned %</th>
-                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Actual</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">%</th>
                             <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600">Actions</th>
                           </tr>
                         </thead>
@@ -817,23 +778,6 @@ return (
                                   )}
                                 </td>
 
-                                <td className="px-4 py-3 text-sm text-gray-700">
-                                <div className="flex items-center gap-2">
-                                    <div className="w-24 bg-gray-100 rounded-full h-2 overflow-hidden">
-                                    <div
-                                        className="bg-green-600 h-2"
-                                        style={{ width: `${Number(actualProgressMap[it.id] || 0)}%` }}
-                                    />
-                                    </div>
-                                    <div className="text-xs w-10 text-right">
-                                    {Number(actualProgressMap[it.id] || 0).toFixed(2)}%
-                                    </div>
-                                </div>
-                                <div className="mt-1 text-[11px] text-gray-500">
-                                    From diaries (Σ progress_update)
-                                </div>
-                                </td>
-
                                 <td className="px-4 py-3 text-right">
                                   <button
                                     type="button"
@@ -864,7 +808,16 @@ return (
 
       </div>
     )}
+
+    <ImportProgrammeModal
+      isOpen={importOpen}
+      onClose={() => setImportOpen(false)}
+      contractId={contractId}
+      programmeVersionNumber={selectedVersionNo}
+      canEdit={canEdit}
+      onImported={() => loadItems(selectedVersionNo)}
+    />
+
   </div>
 );
-
 }

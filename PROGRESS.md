@@ -1,3 +1,51 @@
+# PROGRESS.md - 10 February 2026 ## Progress Update (Post “Programme display is stable…” → Sprint 2C)
+
+    ### ✅ Work Ledger Doctrine Implemented (Diary → Evidence → Claim/Progress)
+    - Confirmed doctrine: **We do NOT link a diary entry to BOQ**.
+    Instead, we link **each Activity** (and now **each Material line**) within a diary to BOQ as evidence.
+    - WorkLedgerLinkModal refined to support **site evidence**:
+    - Select BOQ item(s)
+    - Enter executed **Qty (preferred)** or **% (allowed)**
+    - Add location + evidence notes
+    - Show mapped programme from official BOQ↔Programme mapping (derived, governance-controlled)
+
+    ### ✅ Sprint 2B: Save Evidence + Programme Updates
+    - Saving a diary now writes:
+    - `diary_work_activities` (activities)
+    - `diary_boq_links` (BOQ evidence rows per activity/material)
+    - `diary_programme_links` (programme progress delta + allocation per mapped programme item)
+    - Database constraints adjusted to fit doctrine:
+    - Allowed **Qty OR %** evidence (not strictly qty-only)
+    - Removed premature cumulative enforcement constraint that blocked inserts
+    - Ensured programme link uniqueness supports multiple entries per diary/activity where required
+
+    ### ✅ Edit Mode: Rehydrate Evidence + Allocation (Critical Fix)
+    - When reopening a diary in edit mode:
+    - BOQ links are reloaded from `diary_boq_links`
+    - Programme allocations/deltas are reloaded from `diary_programme_links`
+    - Modal now shows saved allocations correctly (e.g., 70/30 split) instead of resetting to 0
+
+    ### ✅ Materials → BOQ Evidence (Option A)
+    - Enabled Materials “🔗 BOQ” linking using the SAME WorkLedgerLinkModal in **material mode**
+    - Material evidence also contributes to programme updates (same as activity evidence)
+
+    ### ✅ Programme Page: Sprint 2C Direction
+    - Sprint 2C goal confirmed:
+    - Show **Actual % (to-date)** per programme item derived from Σ `diary_programme_links.progress_update`
+    - Noted dependency:
+    - `v_programme_actual_progress` view required (or fallback client-side sum)
+    - Supabase schema cache reload may be needed after creating the view
+    - UI direction confirmed:
+    - Programme Versions and WBS should be **top/bottom** with collapsible panels and horizontal scroll for WBS.
+
+    ### Known Issues / Watchlist
+    - Ensure `diary_work_activity_id` is consistently populated in `diary_programme_links` for stronger audit trail (some older rows may have nulls).
+    - Sprint 2C UI merge must preserve:
+    - Top/bottom layout
+    - Working Import CSV modal
+    - Actual% data source (view + fallback)
+
+
 # PROGRESS.md - Session 16 & 17 Update    ## Weather Photos Pending System + Critical Bug Fixes
 
     **Date:** 19 January 2026 (Sunday)  

@@ -4,16 +4,23 @@ import { getBOQsByContract, deleteBOQ, getBOQStatistics } from '../../services/b
 import { supabase } from '../../lib/supabase';
 import Breadcrumb from '../../components/common/Breadcrumb';
 
+// ✅ NEW: BOQ ↔ Programme mapping modal (governance)
+import BoqProgrammeLinkModal from '../../components/links/BoqProgrammeLinkModal';
+
 function BOQList() {
   const { contractId } = useParams();
   const navigate = useNavigate();
-  
+
   const [boqs, setBoqs] = useState([]);
   const [contract, setContract] = useState(null);
   const [statistics, setStatistics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+
+  // ✅ NEW: mapping modal state
+  const [showBoqProgrammeModal, setShowBoqProgrammeModal] = useState(false);
+  const [linkTargetBoqItemId, setLinkTargetBoqItemId] = useState(null); // reserved for future per-item mapping
 
   const breadcrumbItems = [
     { label: 'Contracts', href: '/contracts', icon: '📄' },
@@ -23,6 +30,7 @@ function BOQList() {
 
   useEffect(() => {
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contractId]);
 
   const fetchData = async () => {
@@ -53,7 +61,6 @@ function BOQList() {
       if (statsResult.success) {
         setStatistics(statsResult.data);
       }
-
     } catch (err) {
       console.error('Error fetching data:', err);
       setError(err.message || 'Failed to load BOQ data');
@@ -66,7 +73,6 @@ function BOQList() {
     try {
       const result = await deleteBOQ(boqId);
       if (result.success) {
-        // Refresh the list
         fetchData();
         setDeleteConfirm(null);
       } else {
@@ -108,19 +114,35 @@ function BOQList() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <Breadcrumb items={breadcrumbItems} />
+
       {/* Header */}
-      <div className="mb-6">                
+      <div className="mb-6">
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Bill of Quantities</h1>
             <p className="text-gray-600 mt-1">{contract?.project_name}</p>
           </div>
-          <button
-            onClick={() => navigate(`/contracts/${contractId}/boq/new`)}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition"
-          >
-            + Create BOQ
-          </button>
+
+          <div className="flex items-center gap-2">
+            {/* ✅ NEW: Governance mapping button */}
+            <button
+              onClick={() => {
+                setLinkTargetBoqItemId(null);      // user selects BOQ item inside modal
+                setShowBoqProgrammeModal(true);
+              }}
+              className="bg-gray-900 hover:bg-black text-white px-4 py-2 rounded-lg font-medium transition"
+              title="Map BOQ items to Programme activities (many-to-many)"
+            >
+              🔗 Programme Mapping
+            </button>
+
+            <button
+              onClick={() => navigate(`/contracts/${contractId}/boq/new`)}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition"
+            >
+              + Create BOQ
+            </button>
+          </div>
         </div>
       </div>
 
@@ -253,6 +275,7 @@ function BOQList() {
                       >
                         View
                       </Link>
+
                       {boq.status === 'draft' && (
                         <button
                           onClick={() => setDeleteConfirm(boq.id)}
@@ -297,6 +320,21 @@ function BOQList() {
           </div>
         </div>
       )}
+
+      {/* ✅ NEW: BOQ ↔ Programme Mapping Modal */}
+      <BoqProgrammeLinkModal
+        isOpen={showBoqProgrammeModal}
+        onClose={() => {
+          setShowBoqProgrammeModal(false);
+          setLinkTargetBoqItemId(null);
+        }}
+        contractId={contractId}
+        initialBoqItemId={linkTargetBoqItemId}
+        onSaved={() => {
+          // optional: later refresh list badges/stats if you display mapping counts
+          // fetchData();
+        }}
+      />
     </div>
   );
 }

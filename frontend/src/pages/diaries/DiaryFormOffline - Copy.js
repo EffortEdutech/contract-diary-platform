@@ -33,7 +33,6 @@ import {
   DIARY_STATUS
 } from '../../services/diaryService';
 import PhotoUpload from '../../components/diary/PhotoUpload';
-import WorkLedgerLinkModal from '../../components/diary/WorkLedgerLinkModal';
 import { useAuth } from '../../contexts/AuthContext';
 import { uploadWeatherPhoto } from '../../services/diaryPhotoService';
 
@@ -78,7 +77,7 @@ const DiaryFormOffline = () => {
   ]);
 
   const [materials, setMaterials] = useState([
-    { description: '', quantity: 0, unit: '', supplier: '', do_number: '', boq_evidences: [] }
+    { description: '', quantity: 0, unit: '', supplier: '', do_number: '', boq_item_id: null, boq_item_description: '' }
   ]);
 
   // NEW CORRECTED: Work Activities with Inspection/Test flags
@@ -104,14 +103,11 @@ const DiaryFormOffline = () => {
   // Modals
   const [showWeatherModal, setShowWeatherModal] = useState(false);
   const [editingWeather, setEditingWeather] = useState(null);
-  const [showLedgerLink, setShowLedgerLink] = useState(false);
+  const [showProgrammeLink, setShowProgrammeLink] = useState(false);
+  const [showBOQLink, setShowBOQLink] = useState(false);
   const [activeItemIndex, setActiveItemIndex] = useState(null);
 
-  
-  // WorkLedgerLinkModal context
-  const [ledgerMode, setLedgerMode] = useState('activity'); // 'activity' | 'material'
-  const [activeMaterialIndex, setActiveMaterialIndex] = useState(null);
-// ============================================
+  // ============================================
   // LOAD DATA
   // ============================================
 
@@ -160,13 +156,11 @@ const DiaryFormOffline = () => {
         setProgrammeItems(progData || []);
       }
 
-            // ✅ Load BOQ items for THIS contract only
-      // (boq_items -> boq (boq_id) -> contracts (contract_id))
+      // ✅ FIXED: Load all BOQ items (no contract filter)
       const { data: boqData, error: boqError } = await supabase
         .from('boq_items')
-        .select('id, item_number, description, unit, unit_rate, quantity, item_type, boq_id, boq!inner(contract_id)')
-        .eq('boq.contract_id', contractId)
-        .order('item_number', { ascending: true });
+        .select('id, description, unit, unit_rate, quantity, item_type, item_number')
+        .order('description');
 
       if (boqError) {
         console.error('Error loading BOQ items:', boqError);
@@ -174,7 +168,6 @@ const DiaryFormOffline = () => {
       } else {
         setBOQItems(boqData || []);
       }
-
 
     } catch (err) {
       console.error('Error loading reference data:', err);
@@ -243,12 +236,11 @@ const DiaryFormOffline = () => {
           supplier: item.supplier || '',
           do_number: item.do_number || '',   
           boq_item_id: item.boq_item_id || null,
-          boq_item_code: item.boq_item_code || '',
-          boq_evidences: Array.isArray(item.boq_evidences) ? item.boq_evidences : []
+          boq_item_code: item.boq_item_code || ''
         }));
         setMaterials(validMaterials);
       } else {
-        setMaterials([{ description: '', quantity: 0, unit: '', supplier: '' ,do_number: '', boq_evidences: [] }]);
+        setMaterials([{ description: '', quantity: 0, unit: '', supplier: '' ,do_number: '', boq_item_id: null, boq_item_code: ''}]);
       }
 
       // Load weather observations
@@ -338,103 +330,6 @@ const DiaryFormOffline = () => {
           programme_wbs_code: act.programme_wbs_code || ''   // ✅ ADDED
         }));
         setWorkActivities(loadedActivities);
-
-        // ✅ Sprint 2B: Load existing ledger links (Activity/Materials → BOQ) for edit mode
-        try {
-          const { data: linksData, error: linksError } = await supabase
-            .from('diary_boq_links')
-            .select('id, boq_item_id, diary_work_activity_id, quantity_completed, percent_complete, unit, location, work_description')
-            .eq('diary_id', diaryId)
-            .order('created_at');
-
-          if (linksError) {
-            console.error('Error loading ledger links:', linksError);
-          } else if (linksData && linksData.length > 0) {
-            // ✅ ALSO load programme allocations per BOQ evidence (Sprint 2B edit mode rehydrate)
-            // We store allocations in diary_programme_links (allocation_percent) keyed primarily by diary_boq_link_id.
-            // Some historical rows may miss diary_work_activity_id; we therefore hydrate by diary_boq_link_id (and fallback by boq_item_id).
-            let allocByBoqLinkId = {};
-            let allocByBoqItemId = {};
-            try {
-              const { data: progData, error: progError } = await supabase
-                .from('diary_programme_links')
-                .select('diary_boq_link_id, boq_item_id, programme_item_id, allocation_percent')
-                .eq('diary_id', diaryId);
-
-              if (progError) {
-                console.error('Error loading programme allocations:', progError);
-              } else if (progData && progData.length > 0) {
-                progData.forEach(row => {
-                  if (row.diary_boq_link_id) {
-                    if (!allocByBoqLinkId[row.diary_boq_link_id]) allocByBoqLinkId[row.diary_boq_link_id] = {};
-                    if (row.programme_item_id) {
-                      allocByBoqLinkId[row.diary_boq_link_id][row.programme_item_id] = row.allocation_percent;
-                    }
-                  }
-                  if (row.boq_item_id) {
-                    if (!allocByBoqItemId[row.boq_item_id]) allocByBoqItemId[row.boq_item_id] = {};
-                    if (row.programme_item_id) {
-                      // only set if not already (diary_boq_link_id is the preferred key)
-                      if (allocByBoqItemId[row.boq_item_id][row.programme_item_id] == null) {
-                        allocByBoqItemId[row.boq_item_id][row.programme_item_id] = row.allocation_percent;
-                      }
-                    }
-                  }
-                });
-
-                console.log('✅ Loaded programme allocations:', progData.length);
-              } else {
-                console.log('ℹ️ No programme allocations found for this diary');
-              }
-            } catch (eAlloc) {
-              console.error('Error loading programme allocations (exception):', eAlloc);
-            }
-
-            // Group activity links by diary_work_activity_id
-            const byActivity = {};
-            const byMaterialIndex = {};
-
-            linksData.forEach(l => {
-              const evidence = {
-                diary_boq_link_id: l.id,
-                boq_item_id: l.boq_item_id,
-                unit: l.unit || '',
-                executed_qty: l.quantity_completed,
-                executed_pct: l.percent_complete,
-                location: l.location || '',
-                work_description: l.work_description || '',
-                programme_allocations_map: allocByBoqLinkId[l.id] || allocByBoqItemId[l.boq_item_id] || {}
-              };
-
-              if (l.diary_work_activity_id) {
-                if (!byActivity[l.diary_work_activity_id]) byActivity[l.diary_work_activity_id] = [];
-                byActivity[l.diary_work_activity_id].push(evidence);
-              } else if (typeof l.location === 'string' && l.location.startsWith('MATERIAL#')) {
-                const idxStr = l.location.replace('MATERIAL#', '');
-                const idx = parseInt(idxStr, 10);
-                if (!Number.isNaN(idx)) {
-                  if (!byMaterialIndex[idx]) byMaterialIndex[idx] = [];
-                  byMaterialIndex[idx].push(evidence);
-                }
-              }
-            });
-
-            // Attach to activities
-            setWorkActivities(prev => prev.map(a => ({
-              ...a,
-              boq_evidences: byActivity[a.id] || []
-            })));
-
-            // Attach to materials (best-effort by index)
-            setMaterials(prev => prev.map((m, idx) => ({
-              ...m,
-              boq_evidences: byMaterialIndex[idx] || (m.boq_evidences || [])
-            })));
-          }
-        } catch (e) {
-          console.error('Error loading ledger links (unexpected):', e);
-        }
-
       } else {
         console.log('No activities found');
         setWorkActivities([]);
@@ -596,7 +491,25 @@ const DiaryFormOffline = () => {
       return row;
     }));
   };
-// ============================================
+
+
+  const linkMaterialToBOQ = (index) => {
+    setActiveItemIndex(index);
+    setShowBOQLink(true);
+  };
+
+  const handleBOQLinkSelected = (boqItem) => {
+    if (activeItemIndex !== null) {
+      updateMaterialRow(activeItemIndex, 'boq_item_id', boqItem.id);
+      updateMaterialRow(activeItemIndex, 'boq_item_code', boqItem.description);
+      updateMaterialRow(activeItemIndex, 'description', boqItem.description);
+      updateMaterialRow(activeItemIndex, 'unit', boqItem.unit);
+    }
+    setShowBOQLink(false);
+    setActiveItemIndex(null);
+  };
+
+  // ============================================
   // NEW CORRECTED: Work Activity Handlers
   // ============================================
 
@@ -667,7 +580,24 @@ const DiaryFormOffline = () => {
       return act;
     }));
   };
-// ============================================
+
+
+  const linkActivityToProgramme = (index) => {
+    setActiveItemIndex(index);
+    setShowProgrammeLink(true);
+  };
+
+  const handleProgrammeLinkSelected = (progItem) => {
+    if (activeItemIndex !== null) {
+      updateWorkActivity(activeItemIndex, 'programme_item_id', progItem.id);
+      updateWorkActivity(activeItemIndex, 'programme_wbs_code', progItem.wbs_code);
+      updateWorkActivity(activeItemIndex, 'title', progItem.description);
+    }
+    setShowProgrammeLink(false);
+    setActiveItemIndex(null);
+  };
+
+  // ============================================
   // NEW CORRECTED: Inspection/Test Request Handlers
   // ============================================
 
@@ -1169,28 +1099,16 @@ const DiaryFormOffline = () => {
       console.log('✅ Cleared pending weather photos queue');
 
 
-      // ✅ FIX: Delete old work activities + ledger links in edit mode
+      // ✅ FIX: Delete old work activities in edit mode
       if (isEditMode) {
-        // 1) Work activities
         await supabase
           .from('diary_work_activities')
           .delete()
           .eq('diary_id', savedDiary.id);
-
-        // 2) Work ledger links (Activity/Materials → BOQ evidence)
-        //    We re-insert them from the current form state after save.
-        await supabase
-          .from('diary_boq_links')
-          .delete()
-          .eq('diary_id', savedDiary.id);
-
-        // 3) Programme progress links (derived from BOQ basis + allocation)
-        await supabase
-          .from('diary_programme_links')
-          .delete()
-          .eq('diary_id', savedDiary.id);
       }
-// Save work activities - ENHANCED ERROR HANDLING
+
+
+      // Save work activities - ENHANCED ERROR HANDLING
       if (workActivities.length > 0) {
         console.log(`💾 Saving ${workActivities.length} activities...`);
         
@@ -1234,127 +1152,25 @@ const DiaryFormOffline = () => {
           
           console.log('✅ Activity saved:', savedActivity.id);
 
-
-           // ✅ Sprint 2B: Save Work Ledger evidence (Activity → BOQ) + Programme progress (derived)
-           //    - Activity may contain: activity.boq_evidences = [{boq_item_id, unit, executed_qty, executed_pct, location, work_description, programme_allocations_map}]
-           //    - We write BOQ evidence into diary_boq_links (NO contract_id column)
-           //    - We write programme updates into diary_programme_links using allocations (NO contract_id column)
-           try {
-             const evidences = Array.isArray(activity.boq_evidences) ? activity.boq_evidences : [];
-
-             // 1) Save BOQ evidence rows and return ids for traceability
-             let savedBoqLinks = [];
-             if (evidences.length > 0) {
-               const boqRows = evidences
-                 .filter(e => e?.boq_item_id && (e.executed_qty != null || e.executed_pct != null))
-                 .map(e => ({
-                   diary_id: savedDiary.id,
-                   boq_item_id: e.boq_item_id,
-                   diary_work_activity_id: savedActivity.id,
-
-                   quantity_completed: e.executed_qty ?? null,
-                   percent_complete: e.executed_pct ?? null,
-                   unit: e.unit ?? null,
-
-                   activity_title: activity.title || 'Untitled Activity',
-                   work_description: e.work_description || activity.description || '',
-                   location: e.location || null,
-                   created_by: user.id
-                 }));
-
-               if (boqRows.length > 0) {
-                 const { data: boqInserted, error: boqErr } = await supabase
-                   .from('diary_boq_links')
-                   .insert(boqRows)
-                   .select('id, boq_item_id');
-
-                 if (boqErr) {
-                   console.error('⚠️ Error saving BOQ evidences:', boqErr);
-                 } else {
-                   savedBoqLinks = boqInserted || [];
-                   console.log('✅ Saved BOQ evidences:', savedBoqLinks.length);
-                 }
-               }
-             }
-
-             // 2) Save programme progress rows from allocations (advanced control)
-             //    Only write when user allocated and allocation sums to 100% for that BOQ evidence.
-             if (savedBoqLinks.length > 0) {
-               const boqLinkByBoqId = new Map(savedBoqLinks.map(r => [r.boq_item_id, r.id]));
-               const programmeRows = [];
-
-               for (const e of evidences) {
-                 if (!e?.boq_item_id) continue;
-
-                 const diaryBoqLinkId = boqLinkByBoqId.get(e.boq_item_id);
-                 if (!diaryBoqLinkId) continue;
-
-                 // Determine BOQ basis % (today)
-                 let boqBasisPct = (e.executed_pct != null) ? Number(e.executed_pct) : null;
-
-                 if (boqBasisPct == null && e.executed_qty != null) {
-                   const boqRef = boqItems.find(b => b.id === e.boq_item_id);
-                   const boqContractQty = boqRef?.quantity;
-                   if (boqContractQty != null && Number(boqContractQty) > 0) {
-                     boqBasisPct = (Number(e.executed_qty) / Number(boqContractQty)) * 100;
-                   }
-                 }
-
-                 if (boqBasisPct == null || !Number.isFinite(boqBasisPct)) {
-                   console.warn('⚠️ Skip programme allocation: cannot compute BOQ basis % for', e.boq_item_id);
-                   continue;
-                 }
-
-                 const allocMap = e.programme_allocations_map || {};
-                 const allocEntries = Object.entries(allocMap)
-                   .map(([programmeId, pct]) => [programmeId, Number(pct)])
-                   .filter(([programmeId, pct]) => programmeId && Number.isFinite(pct) && pct > 0);
-
-                 if (allocEntries.length === 0) continue;
-
-                 const allocSum = allocEntries.reduce((s, [, pct]) => s + pct, 0);
-                 if (Math.abs(allocSum - 100) > 0.01) {
-                   console.warn('⚠️ Skip programme allocation: sum not 100 for BOQ', e.boq_item_id, 'sum=', allocSum);
-                   continue;
-                 }
-
-                 for (const [programmeId, allocPct] of allocEntries) {
-                   const programmeDelta = (boqBasisPct * allocPct) / 100;
-
-                   programmeRows.push({
-                     diary_id: savedDiary.id,
-                     programme_item_id: programmeId,
-                     progress_update: programmeDelta,
-
-                     activity_title: activity.title || 'Untitled Activity',
-                     work_description: e.work_description || activity.description || '',
-                     quantity_completed: e.executed_qty ?? null,
-                     unit: e.unit ?? null,
-                     status: activity.status || 'in_progress',
-
-                     boq_item_id: e.boq_item_id,
-                     diary_boq_link_id: diaryBoqLinkId,
-                     diary_work_activity_id: savedActivity.id,
-                     allocation_percent: allocPct,
-
-                     created_by: user.id
-                   });
-                 }
-               }
-
-               if (programmeRows.length > 0) {
-                 const { error: progErr } = await supabase
-                   .from('diary_programme_links')
-                   .insert(programmeRows);
-
-                 if (progErr) console.error('⚠️ Error saving programme allocations:', progErr);
-                 else console.log('✅ Saved programme allocations:', programmeRows.length);
-               }
-             }
-           } catch (ledgerErr) {
-             console.error('⚠️ Ledger save failed (BOQ/Programme):', ledgerErr);
-           }
-
+          // ALSO save to programme_links if linked
+          if (activity.programme_item_id) {
+            const { error: linkError } = await supabase
+              .from('diary_programme_links')
+              .insert({
+                diary_id: savedDiary.id,
+                programme_item_id: activity.programme_item_id,
+                progress_update: activity.percent_complete,
+                work_description: activity.description,
+                quantity_completed: activity.quantity_completed,
+                unit: activity.unit,
+                status: activity.status,
+                created_by: user.id
+              });
+            
+            if (linkError) {
+              console.error('⚠️ Error saving programme link:', linkError);
+            }
+          }
         }
         
         // ✅ SHOW RESULTS TO USER
@@ -1366,117 +1182,23 @@ const DiaryFormOffline = () => {
         }
       }
 
-      // ✅ Sprint 2B: Save Material → BOQ evidence + Programme progress (derived)
-// Materials are stored in work_diaries.materials_delivered (JSON). We store BOQ evidence rows in diary_boq_links.
-// We tag material rows using location = "MATERIAL#<index>" so we can rehydrate on edit.
-for (let mIdx = 0; mIdx < materials.length; mIdx++) {
-  const material = materials[mIdx];
-  const evidences = Array.isArray(material?.boq_evidences) ? material.boq_evidences : [];
-  if (evidences.length === 0) continue;
-
-  // 1) Save BOQ evidence rows for this material and return ids
-  let savedBoqLinks = [];
-  const boqRows = evidences
-    .filter(e => e?.boq_item_id && (e.executed_qty != null || e.executed_pct != null))
-    .map(e => ({
-      diary_id: savedDiary.id,
-      boq_item_id: e.boq_item_id,
-      diary_work_activity_id: null, // material evidence
-
-      quantity_completed: e.executed_qty ?? null,
-      percent_complete: e.executed_pct ?? null,
-      unit: e.unit ?? material.unit ?? null,
-
-      activity_title: `Material: ${material.description || ''}`.trim(),
-      work_description: e.work_description || `Material delivered: ${material.description || ''}`.trim(),
-      // Tag so we can load it back to the correct material row on edit:
-      location: `MATERIAL#${mIdx}`,
-      created_by: user.id
-    }));
-
-  if (boqRows.length > 0) {
-    const { data: boqInserted, error: boqErr } = await supabase
-      .from('diary_boq_links')
-      .insert(boqRows)
-      .select('id, boq_item_id');
-
-    if (boqErr) {
-      console.error('⚠️ Error saving MATERIAL BOQ evidences:', boqErr);
-      continue;
-    } else {
-      savedBoqLinks = boqInserted || [];
-      console.log('✅ Saved MATERIAL BOQ evidences:', savedBoqLinks.length);
-    }
-  }
-
-  // 2) Save programme progress rows from allocations (same doctrine as activities)
-  if (savedBoqLinks.length > 0) {
-    const boqLinkByBoqId = new Map(savedBoqLinks.map(r => [r.boq_item_id, r.id]));
-    const programmeRows = [];
-
-    for (const e of evidences) {
-      if (!e?.boq_item_id) continue;
-      const diaryBoqLinkId = boqLinkByBoqId.get(e.boq_item_id);
-      if (!diaryBoqLinkId) continue;
-
-      // Determine BOQ basis % (today)
-      let boqBasisPct = (e.executed_pct != null) ? Number(e.executed_pct) : null;
-
-      if (boqBasisPct == null && e.executed_qty != null) {
-        const boqRef = boqItems.find(b => b.id === e.boq_item_id);
-        const boqContractQty = boqRef?.quantity;
-        if (boqContractQty != null && Number(boqContractQty) > 0) {
-          boqBasisPct = (Number(e.executed_qty) / Number(boqContractQty)) * 100;
+      // Save material-BOQ links
+      for (const material of materials) {
+        if (material.boq_item_id) {
+          await supabase
+            .from('diary_boq_links')
+            .insert({
+              diary_id: savedDiary.id,
+              boq_item_id: material.boq_item_id,
+              quantity_completed: material.quantity,
+              unit: material.unit,
+              work_description: `Material delivered: ${material.description}`,
+              created_by: user.id
+            });
         }
       }
-      if (boqBasisPct == null || !Number.isFinite(boqBasisPct)) continue;
 
-      const allocMap = e.programme_allocations_map || {};
-      const allocEntries = Object.entries(allocMap)
-        .map(([programmeId, pct]) => [programmeId, Number(pct)])
-        .filter(([programmeId, pct]) => programmeId && Number.isFinite(pct) && pct > 0);
-
-      if (allocEntries.length === 0) continue;
-
-      const allocSum = allocEntries.reduce((s, [, pct]) => s + pct, 0);
-      if (Math.abs(allocSum - 100) > 0.01) {
-        console.warn('⚠️ Skip MATERIAL programme allocation: sum not 100 for BOQ', e.boq_item_id, 'sum=', allocSum);
-        continue;
-      }
-
-      for (const [programmeId, allocPct] of allocEntries) {
-        const programmeDelta = (boqBasisPct * allocPct) / 100;
-        programmeRows.push({
-          diary_id: savedDiary.id,
-          programme_item_id: programmeId,
-          progress_update: programmeDelta,
-          activity_title: `Material: ${material.description || ''}`.trim(),
-          work_description: e.work_description || `Material delivered: ${material.description || ''}`.trim(),
-          quantity_completed: e.executed_qty ?? null,
-          unit: e.unit ?? material.unit ?? null,
-          status: 'in_progress',
-          boq_item_id: e.boq_item_id,
-          diary_boq_link_id: diaryBoqLinkId,
-          diary_work_activity_id: null,
-          allocation_percent: allocPct,
-          created_by: user.id
-        });
-      }
-    }
-
-    if (programmeRows.length > 0) {
-      const { error: progErr } = await supabase
-        .from('diary_programme_links')
-        .insert(programmeRows);
-
-      if (progErr) console.error('⚠️ Error saving MATERIAL programme allocations:', progErr);
-      else console.log('✅ Saved MATERIAL programme allocations:', programmeRows.length);
-    }
-  }
-}
-
-// Save observations
-
+      // Save observations
       if (observations.length > 0) {
         for (const obs of observations) {
           await supabase
@@ -1788,23 +1510,18 @@ for (let mIdx = 0; mIdx < materials.length; mIdx++) {
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        BOQ Link
+                        Programme Link
                       </label>
                       <div className="flex gap-2">
                         <input
                           type="text"
-                          value={activity?.boq_evidences?.length ? 'Derived via BOQ mapping' : 'Not linked'}
+                          value={activity.programme_wbs_code || 'Not linked'}
                           disabled
                           className="flex-1 px-3 py-2 border border-gray-300 rounded-lg bg-gray-100"
                         />
                         <button
                           type="button"
-                          onClick={() => {
-                            setLedgerMode('activity');
-                            setActiveItemIndex(index);
-                            setActiveMaterialIndex(null);
-                            setShowLedgerLink(true);
-                          }}
+                          onClick={() => linkActivityToProgramme(index)}
                           className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
                         >
                           🔗 Link
@@ -2207,21 +1924,16 @@ for (let mIdx = 0; mIdx < materials.length; mIdx++) {
                     <div className="flex gap-2">
                       <input
                         type="text"
-                        value={row?.boq_evidences?.length ? `${row.boq_evidences.length} BOQ link(s)` : 'Not linked to BOQ'}
+                        value={row.boq_item_code || 'Not linked to BOQ'}
                         disabled
                         className="flex-1 px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-sm"
                       />
                       <button
                         type="button"
-                        onClick={() => {
-                          setLedgerMode('material');
-                          setActiveMaterialIndex(index);
-                          setActiveItemIndex(null);
-                          setShowLedgerLink(true);
-                        }}
-                        className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+                        onClick={() => linkMaterialToBOQ(index)}
+                        className="px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm"
                       >
-                        🔗 Link
+                        🔗 BOQ
                       </button>
                     </div>
                   </div>
@@ -2615,34 +2327,6 @@ for (let mIdx = 0; mIdx < materials.length; mIdx++) {
         />
       )}
 
-      {/* Work Ledger Link Modal (BOQ evidence + Programme allocation preview) */}
-      {showLedgerLink && (
-        <WorkLedgerLinkModal
-          isOpen={showLedgerLink}
-          contractId={contractId}
-          boqItems={boqItems}
-          initialEvidences={
-            ledgerMode === 'material'
-              ? (activeMaterialIndex !== null ? (materials[activeMaterialIndex]?.boq_evidences || []) : [])
-              : (activeItemIndex !== null ? (workActivities[activeItemIndex]?.boq_evidences || []) : [])
-          }
-          onSave={(evidences) => {
-            if (ledgerMode === 'material') {
-              if (activeMaterialIndex === null) return;
-              updateMaterialRow(activeMaterialIndex, 'boq_evidences', evidences);
-              return;
-            }
-            if (activeItemIndex === null) return;
-            updateWorkActivity(activeItemIndex, 'boq_evidences', evidences);
-          }}
-          onClose={() => {
-            setShowLedgerLink(false);
-            setActiveItemIndex(null);
-            setActiveMaterialIndex(null);
-          }}
-        />
-      )}
-      
       {/* Confirm Delete Dialog - ADDED */}
       {showConfirm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">

@@ -652,6 +652,7 @@ function BOQDetail() {
           </div>
         </div>
       )}
+      
     </div>
   );
 }

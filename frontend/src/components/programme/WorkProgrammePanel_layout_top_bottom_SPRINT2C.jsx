@@ -822,11 +822,11 @@ return (
                                     <div className="w-24 bg-gray-100 rounded-full h-2 overflow-hidden">
                                     <div
                                         className="bg-green-600 h-2"
-                                        style={{ width: `${Number(actualProgressMap[it.id] || 0)}%` }}
+                                        style={{ width: `${Number(it.actual_percent_to_date || 0)}%` }}
                                     />
                                     </div>
                                     <div className="text-xs w-10 text-right">
-                                    {Number(actualProgressMap[it.id] || 0).toFixed(2)}%
+                                    {Number(it.actual_percent_to_date || 0).toFixed(2)}%
                                     </div>
                                 </div>
                                 <div className="mt-1 text-[11px] text-gray-500">
