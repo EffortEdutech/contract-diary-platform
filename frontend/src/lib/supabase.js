@@ -9,3 +9,8 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     persistSession: true
   }
 });
+
+// ✅ TEMP DEBUG: expose to browser console
+if (typeof window !== 'undefined') {
+  window.supabase = supabase;
+}

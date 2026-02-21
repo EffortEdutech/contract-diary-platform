@@ -92,6 +92,10 @@ export const ensureBaselineVersion = async (contractId) => {
     description: 'Auto-created from CSV import',
     created_by: user?.id || null,
     is_current: true,
+
+    // ✅ new defaults (per-version roll-up config)
+    weight_mode: 'hybrid',
+    alpha_cost: 0.70,
   };
 
   const { data, error } = await supabase
@@ -116,35 +120,59 @@ export const getDefaultProgrammeVersionNumber = async (contractId) => {
   return maxItemV?.[0]?.programme_version || 1;
 };
 
+export const createProgrammeVersion = async (args) => {
+  const contractId = args?.contractId ?? args?.contract_id;
+  if (!contractId) throw new Error('createProgrammeVersion: contractId is required');
 
-export const createProgrammeVersion = async ({
-  contractId,
-  versionName,
-  versionType,
-  description = null,
-}) => {
   const { data: auth } = await supabase.auth.getUser();
   const user = auth?.user;
   if (!user) throw new Error('User not authenticated');
 
-  const { data: existing, error: exErr } = await supabase
-    .from('programme_versions')
-    .select('version_number')
-    .eq('contract_id', contractId)
-    .order('version_number', { ascending: false })
-    .limit(1);
+  const versionName = args?.versionName ?? args?.version_name ?? 'Revision';
+  const versionType = args?.versionType ?? args?.version_type ?? PROGRAMME_VERSION_TYPES.REVISION;
+  const description = args?.description ?? null;
 
-  if (exErr) throw exErr;
+  const weightMode = args?.weightMode ?? args?.weight_mode ?? 'hybrid';
+  const alphaCostRaw = args?.alphaCost ?? args?.alpha_cost;
+  const alphaCost = alphaCostRaw == null ? 0.7 : Number(alphaCostRaw);
 
-  const nextNo = (existing?.[0]?.version_number || 0) + 1;
+  const requestedNo = args?.versionNumber ?? args?.version_number ?? null;
+  const makeCurrent = Boolean(args?.isCurrent ?? args?.is_current ?? false);
+
+  // Decide version number
+  let versionNo = requestedNo;
+  if (versionNo == null) {
+    const { data: existing, error: exErr } = await supabase
+      .from('programme_versions')
+      .select('version_number')
+      .eq('contract_id', contractId)
+      .order('version_number', { ascending: false })
+      .limit(1);
+
+    if (exErr) throw exErr;
+    versionNo = (existing?.[0]?.version_number || 0) + 1;
+  }
+
+  // Ensure only one current (frontend safety)
+  if (makeCurrent) {
+    const { error: unsetErr } = await supabase
+      .from('programme_versions')
+      .update({ is_current: false })
+      .eq('contract_id', contractId);
+
+    if (unsetErr) throw unsetErr;
+  }
 
   const payload = {
     contract_id: contractId,
-    version_number: nextNo,
+    version_number: Number(versionNo),
     version_name: versionName,
     version_type: versionType,
     description,
     created_by: user.id,
+    weight_mode: weightMode,
+    alpha_cost: alphaCost,
+    is_current: makeCurrent,
   };
 
   const { data, error } = await supabase
@@ -157,6 +185,29 @@ export const createProgrammeVersion = async ({
   return data;
 };
 
+export const updateProgrammeVersionWeightConfig = async ({
+  contractId,
+  versionNumber,
+  weightMode,   // 'hybrid' | 'boq' | 'duration'
+  alphaCost,    // 0..1 (only meaningful for hybrid)
+}) => {
+  const payload = {
+    weight_mode: weightMode,
+    alpha_cost: Number(alphaCost ?? 0.70),
+    weight_updated_at: new Date().toISOString(),
+  };
+
+  const { data, error } = await supabase
+    .from('programme_versions')
+    .update(payload)
+    .eq('contract_id', contractId)
+    .eq('version_number', Number(versionNumber))
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+};
 
 // -----------------------------
 // Items
@@ -226,47 +277,43 @@ export const getProgrammeItems = async (contractId, arg2 = null) => {
   return data || [];
 };
 
-export const createProgrammeItem = async ({
-  contractId,
-  programmeVersionNumber,
-  wbsCode,
-  description,
-  activityType = 'Task',
-  plannedStart,
-  plannedFinish,
-  durationDays,
-  parentId = null,
-  level = 1,
-  sortOrder = 0,
-  linkedBoqItemId = null,
-  status = 'Not Started',
-  isCritical = false,
-  totalFloatDays = 0,
-  isBaseline = false,
-  isCurrent = true,
-}) => {
+export const createProgrammeItem = async (args) => {
   const { data: auth } = await supabase.auth.getUser();
   const user = auth?.user;
   if (!user) throw new Error('User not authenticated');
 
+  const contractId = args?.contractId ?? args?.contract_id;
+  const programmeVersionNumber =
+    args?.programmeVersionNumber ?? args?.programme_version ?? args?.programmeVersion ?? null;
+
+  if (!contractId) throw new Error('createProgrammeItem: contractId is required');
+  if (!programmeVersionNumber) throw new Error('createProgrammeItem: programmeVersionNumber is required');
+
   const payload = {
     contract_id: contractId,
-    programme_version: programmeVersionNumber,
-    wbs_code: normalizeWbs(wbsCode),
-    description,
-    activity_type: activityType,
-    planned_start: plannedStart,
-    planned_finish: plannedFinish,
-    duration_days: durationDays ?? null,
-    parent_id: parentId,
-    level,
-    sort_order: sortOrder,
-    linked_boq_item_id: linkedBoqItemId,
-    status,
-    is_critical: isCritical,
-    total_float_days: totalFloatDays,
-    is_baseline: isBaseline,
-    is_current: isCurrent,
+    programme_version: Number(programmeVersionNumber),
+
+    wbs_code: normalizeWbs(args?.wbsCode ?? args?.wbs_code),
+    description: args?.description ?? '',
+    activity_type: args?.activityType ?? args?.activity_type ?? 'Task',
+
+    planned_start: args?.plannedStart ?? args?.planned_start ?? null,
+    planned_finish: args?.plannedFinish ?? args?.planned_finish ?? null,
+    duration_days: args?.durationDays ?? args?.duration_days ?? null,
+
+    parent_id: args?.parentId ?? args?.parent_id ?? null,
+    level: args?.level ?? deriveLevelFromWbs(args?.wbsCode ?? args?.wbs_code),
+    sort_order: args?.sortOrder ?? args?.sort_order ?? 0,
+
+    linked_boq_item_id: args?.linkedBoqItemId ?? args?.linked_boq_item_id ?? null,
+
+    status: args?.status ?? 'Not Started',
+    is_critical: Boolean(args?.isCritical ?? args?.is_critical ?? false),
+    total_float_days: Number(args?.totalFloatDays ?? args?.total_float_days ?? 0),
+
+    is_baseline: Boolean(args?.isBaseline ?? args?.is_baseline ?? false),
+    is_current: Boolean(args?.isCurrent ?? args?.is_current ?? true),
+
     created_by: user.id,
   };
 
@@ -307,6 +354,44 @@ export const deleteProgrammeItemsByVersion = async (contractId, programmeVersion
 
   if (error) throw error;
   return true;
+};
+
+export const setCurrentProgrammeVersion = async (contractId, versionNumber) => {
+  // 1) clear current
+  const { error: e1 } = await supabase
+    .from('programme_versions')
+    .update({ is_current: false })
+    .eq('contract_id', contractId);
+
+  if (e1) throw e1;
+
+  // 2) set chosen current
+  const { error: e2 } = await supabase
+    .from('programme_versions')
+    .update({ is_current: true })
+    .eq('contract_id', contractId)
+    .eq('version_number', Number(versionNumber));
+
+  if (e2) throw e2;
+};
+
+export const ensureProgrammeVersionRow = async (contractId) => {
+  // If any versions exist, return them
+  const existing = await getProgrammeVersions(contractId);
+  if (existing.length) return existing;
+
+  // Otherwise create v1 baseline
+  const created = await createProgrammeVersion({
+    contractId,
+    versionName: 'Baseline Programme',
+    versionType: PROGRAMME_VERSION_TYPES.BASELINE,
+    description: 'Auto-created because programme_versions was empty',
+  });
+
+  // Make it current
+  await setCurrentProgrammeVersion(contractId, created.version_number);
+
+  return await getProgrammeVersions(contractId);
 };
 
 // -----------------------------

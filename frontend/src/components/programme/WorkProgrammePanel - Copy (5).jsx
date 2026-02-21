@@ -20,32 +20,6 @@ function normalizeText(s) {
   return String(s || '').toLowerCase().trim();
 }
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-function isValidUuid(v) {
-  return typeof v === 'string' && UUID_RE.test(v);
-}
-
-/**
- * Picks default programme version number from programme_versions list
- * Priority:
- *  1) is_current = true
- *  2) highest version_number
- *  3) fallback 1
- */
-function pickDefaultVersionNumber(list) {
-  const arr = Array.isArray(list) ? list : [];
-  const current = arr.find((v) => v?.is_current);
-  if (current?.version_number != null) return Number(current.version_number);
-
-  let maxNo = 1;
-  for (const v of arr) {
-    const n = Number(v?.version_number);
-    if (Number.isFinite(n) && n > maxNo) maxNo = n;
-  }
-  return maxNo;
-}
-
-
 function todayISODate() {
   const d = new Date();
   const yyyy = d.getFullYear();
@@ -163,8 +137,7 @@ function countDescendantLeaves(node) {
 
 export default function WorkProgrammePanel({ contractId, authority, isLocked, onChanged }) {
   const { user } = useAuth();
-  // const canEdit = Boolean(authority?.canEditProgramme) && !isLocked;
-  const canEdit = !isLocked && (authority?.canEditProgramme ?? true);
+  const canEdit = Boolean(authority?.canEditProgramme) && !isLocked;
 
   // ------------------------------
   // Versions
@@ -224,18 +197,10 @@ export default function WorkProgrammePanel({ contractId, authority, isLocked, on
   }, []);
 
   // ------------------------------------------------------------
-  // Programme Versions: load list + pick default
-  // FIX: getDefaultProgrammeVersionNumber() expects CONTRACT_ID (uuid), not the list
-  // FIX: never query Supabase when contractId is empty/invalid (prevents 400 / invalid uuid)
+  // Load versions and pick default (baseline/current)
   // ------------------------------------------------------------
-  const isUuid = (v) =>
-    typeof v === 'string' &&
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
-
   const loadVersionsAndPick = async () => {
-    // IMPORTANT: do NOT block by canEdit here — read-only users still must load versions
-    if (!isUuid(contractId)) return;
-
+    if (!contractId) return;
     setVersionsLoading(true);
     setVersionsError(null);
 
@@ -245,29 +210,14 @@ export default function WorkProgrammePanel({ contractId, authority, isLocked, on
 
       setVersions(list);
 
-      // Prefer:
-      // 1) selectedVersionNo (if already set)
-      // 2) DB is_current version
-      // 3) service default (reads programme_items max version)
-      // 4) first version in list
-      // 5) fallback = 1
-      let defaultNo =
+      const defaultNo =
         selectedVersionNo != null
-          ? Number(selectedVersionNo)
-          : Number(list.find((v) => v.is_current)?.version_number || 0);
-
-      if (!defaultNo) {
-        const svcDefault = await getDefaultProgrammeVersionNumber(contractId); // <-- FIXED
-        defaultNo = Number(svcDefault || 0);
-      }
-
-      if (!defaultNo) defaultNo = Number(list[0]?.version_number || 1);
+          ? selectedVersionNo
+          : getDefaultProgrammeVersionNumber(list) ?? (list[0]?.version_number ?? 1);
 
       setSelectedVersionNo(defaultNo);
 
-      const sv =
-        list.find((v) => Number(v.version_number) === defaultNo) || list[0] || null;
-
+      const sv = list.find((v) => v.version_number === defaultNo) || null;
       if (sv) {
         setVersionName(sv.version_name || `Version ${sv.version_number}`);
         setVersionType(sv.version_type || 'Baseline');
@@ -283,12 +233,10 @@ export default function WorkProgrammePanel({ contractId, authority, isLocked, on
     } finally {
       setVersionsLoading(false);
     }
-
   };
 
-
   useEffect(() => {
-    if (!isValidUuid(contractId)) return;
+    if (!contractId) return;
 
     if (loadedContractRef.current !== contractId) {
       loadedContractRef.current = contractId;
@@ -307,9 +255,7 @@ export default function WorkProgrammePanel({ contractId, authority, isLocked, on
   }, [contractId]);
 
   const selectedVersion = useMemo(() => {
-    const sel = selectedVersionNo == null ? null : Number(selectedVersionNo);
-    if (sel == null) return null;
-    return (versions || []).find(v => Number(v.version_number) === sel) || null;
+    return (versions || []).find((v) => v.version_number === selectedVersionNo) || null;
   }, [versions, selectedVersionNo]);
 
   // When selection changes, sync editable fields (no auto-save)
@@ -330,7 +276,7 @@ export default function WorkProgrammePanel({ contractId, authority, isLocked, on
   // Load items for selected version
   // ------------------------------------------------------------
   const loadItems = async (versionNo) => {
-    if (!isValidUuid(contractId) || !versionNo) return;
+    if (!contractId || !versionNo) return;
     setItemsLoading(true);
     setItemsError(null);
 
@@ -357,7 +303,7 @@ export default function WorkProgrammePanel({ contractId, authority, isLocked, on
   // ------------------------------------------------------------
   useEffect(() => {
     const loadActualRollup = async () => {
-      if (!isValidUuid(contractId) || !selectedVersionNo) return;
+      if (!contractId || !selectedVersionNo) return;
 
       try {
         const { data, error } = await supabase
@@ -405,7 +351,7 @@ export default function WorkProgrammePanel({ contractId, authority, isLocked, on
   };
 
   useEffect(() => {
-    if (!isValidUuid(contractId) || !selectedVersionNo || !asOfDate) return;
+    if (!contractId || !selectedVersionNo || !asOfDate) return;
 
     const map = {};
 
@@ -509,7 +455,7 @@ export default function WorkProgrammePanel({ contractId, authority, isLocked, on
   };
 
   const onCreateItem = async (parentId = null) => {
-    if (!canEdit || !isValidUuid(contractId) || !selectedVersionNo) return;
+    if (!canEdit || !contractId || !selectedVersionNo) return;
 
     try {
       const payload = {
@@ -550,7 +496,7 @@ export default function WorkProgrammePanel({ contractId, authority, isLocked, on
 
   // ✅ Important: only when user clicks Save -> update programme_versions -> refresh rollup weights
   const onSaveVersion = async () => {
-    if (!canEdit || !isValidUuid(contractId) || !selectedVersionNo) return;
+    if (!canEdit || !contractId || !selectedVersionNo) return;
 
     setSavingVersion(true);
     setSaveVersionError(null);
@@ -586,7 +532,7 @@ export default function WorkProgrammePanel({ contractId, authority, isLocked, on
   };
 
   const onCreateNewVersion = async () => {
-    if (!canEdit || !isValidUuid(contractId)) return;
+    if (!canEdit || !contractId) return;
     if (!user?.id) {
       alert('User not ready (auth). Please re-login.');
       return;
@@ -626,7 +572,7 @@ export default function WorkProgrammePanel({ contractId, authority, isLocked, on
   // ------------------------------------------------------------
   // UI
   // ------------------------------------------------------------
-  if (!isValidUuid(contractId)) {
+  if (!contractId) {
     return (
       <div className="p-6 bg-white rounded-xl border text-sm text-gray-600">
         Select a contract to view the Work Programme.
@@ -636,6 +582,22 @@ export default function WorkProgrammePanel({ contractId, authority, isLocked, on
 
   return (
     <div className="space-y-4">
+      {/* Header */}
+      <div className="p-4 bg-white rounded-xl border shadow-sm">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="text-lg font-bold">📅 Work Programme</div>
+            <div className="text-sm text-gray-600">Planning &amp; Scheduling • Tree view • CSV import</div>
+          </div>
+          <div className="text-right text-xs text-gray-600">
+            <div className={isLocked ? 'text-red-700 font-semibold' : 'text-green-700 font-semibold'}>
+              {isLocked ? 'Locked' : 'Unlocked'}
+            </div>
+            <div>Contract status: active</div>
+            <div>Member role: {authority?.role || 'member'}</div>
+          </div>
+        </div>
+      </div>
 
       {/* Versions */}
       <div className="p-4 bg-white rounded-xl border shadow-sm">
@@ -667,13 +629,13 @@ export default function WorkProgrammePanel({ contractId, authority, isLocked, on
             <div className="lg:col-span-1">
               <label className="block text-xs font-semibold text-gray-700 mb-1">Selected Version</label>
               <select
-                value={selectedVersionNo != null ? String(selectedVersionNo) : ''}
+                value={selectedVersionNo || ''}
                 onChange={(e) => setSelectedVersionNo(Number(e.target.value))}
                 className="w-full border rounded-lg px-3 py-2 text-sm"
               >
                 {(versions || []).map((v) => (
-                  <option key={v.id ?? v.version_number} value={String(v.version_number)}>
-                    {v.version_number}. {v.version_name}{v.is_current ? ' (current)' : ''}
+                  <option key={v.id} value={v.version_number}>
+                    {v.version_number}. {v.version_name} {v.is_current ? '(current)' : ''}
                   </option>
                 ))}
               </select>

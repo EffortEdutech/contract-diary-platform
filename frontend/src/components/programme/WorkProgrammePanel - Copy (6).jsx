@@ -3,7 +3,6 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   PROGRAMME_VERSION_TYPES,
   getProgrammeVersions,
-  getDefaultProgrammeVersionNumber,
   createProgrammeVersion,
   getProgrammeItems,
   createProgrammeItem,
@@ -163,8 +162,7 @@ function countDescendantLeaves(node) {
 
 export default function WorkProgrammePanel({ contractId, authority, isLocked, onChanged }) {
   const { user } = useAuth();
-  // const canEdit = Boolean(authority?.canEditProgramme) && !isLocked;
-  const canEdit = !isLocked && (authority?.canEditProgramme ?? true);
+  const canEdit = Boolean(authority?.canEditProgramme) && !isLocked;
 
   // ------------------------------
   // Versions
@@ -224,68 +222,35 @@ export default function WorkProgrammePanel({ contractId, authority, isLocked, on
   }, []);
 
   // ------------------------------------------------------------
-  // Programme Versions: load list + pick default
-  // FIX: getDefaultProgrammeVersionNumber() expects CONTRACT_ID (uuid), not the list
-  // FIX: never query Supabase when contractId is empty/invalid (prevents 400 / invalid uuid)
+  // Load versions and pick default (baseline/current)
   // ------------------------------------------------------------
-  const isUuid = (v) =>
-    typeof v === 'string' &&
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
-
   const loadVersionsAndPick = async () => {
-    // IMPORTANT: do NOT block by canEdit here — read-only users still must load versions
-    if (!isUuid(contractId)) return;
-
-    setVersionsLoading(true);
-    setVersionsError(null);
+    // contractId might be temporarily empty while routing/parent page loads
+    if (!isValidUuid(contractId)) return;
 
     try {
-      const data = await getProgrammeVersions(contractId);
-      const list = data || [];
+      setVersionsLoading(true);
+      setVersionsError(null);
 
-      setVersions(list);
+      const list = await getProgrammeVersions(contractId);
+      setVersions(list || []);
 
-      // Prefer:
-      // 1) selectedVersionNo (if already set)
-      // 2) DB is_current version
-      // 3) service default (reads programme_items max version)
-      // 4) first version in list
-      // 5) fallback = 1
-      let defaultNo =
-        selectedVersionNo != null
-          ? Number(selectedVersionNo)
-          : Number(list.find((v) => v.is_current)?.version_number || 0);
+      const defaultNo =
+        selectedVersionNo != null ? Number(selectedVersionNo) : pickDefaultVersionNumber(list);
 
-      if (!defaultNo) {
-        const svcDefault = await getDefaultProgrammeVersionNumber(contractId); // <-- FIXED
-        defaultNo = Number(svcDefault || 0);
-      }
+      const pickedNo = Number.isFinite(defaultNo) ? defaultNo : 1;
+      setSelectedVersionNo(pickedNo);
 
-      if (!defaultNo) defaultNo = Number(list[0]?.version_number || 1);
-
-      setSelectedVersionNo(defaultNo);
-
-      const sv =
-        list.find((v) => Number(v.version_number) === defaultNo) || list[0] || null;
-
-      if (sv) {
-        setVersionName(sv.version_name || `Version ${sv.version_number}`);
-        setVersionType(sv.version_type || 'Baseline');
-        setVersionDesc(sv.description || '');
-        setWeightMode(sv.weight_mode || 'hybrid');
-        setAlphaCost(sv.alpha_cost != null ? Number(sv.alpha_cost) : 0.7);
-      }
+      const sv = (list || []).find((v) => Number(v.version_number) === pickedNo) || null;
+      setVersionName(sv?.version_name || '');
+      setVersionType(sv?.version_type || 'Baseline');
     } catch (e) {
-      console.error('Error loading programme versions:', e);
-      setVersionsError(e?.message || 'Failed to load programme versions');
-      setVersions([]);
-      setSelectedVersionNo(null);
+      console.error('Error loading versions:', e);
+      setVersionsError(e?.message || 'Failed to load versions');
     } finally {
       setVersionsLoading(false);
     }
-
   };
-
 
   useEffect(() => {
     if (!isValidUuid(contractId)) return;
@@ -307,9 +272,7 @@ export default function WorkProgrammePanel({ contractId, authority, isLocked, on
   }, [contractId]);
 
   const selectedVersion = useMemo(() => {
-    const sel = selectedVersionNo == null ? null : Number(selectedVersionNo);
-    if (sel == null) return null;
-    return (versions || []).find(v => Number(v.version_number) === sel) || null;
+    return (versions || []).find((v) => v.version_number === selectedVersionNo) || null;
   }, [versions, selectedVersionNo]);
 
   // When selection changes, sync editable fields (no auto-save)
@@ -667,13 +630,13 @@ export default function WorkProgrammePanel({ contractId, authority, isLocked, on
             <div className="lg:col-span-1">
               <label className="block text-xs font-semibold text-gray-700 mb-1">Selected Version</label>
               <select
-                value={selectedVersionNo != null ? String(selectedVersionNo) : ''}
+                value={selectedVersionNo || ''}
                 onChange={(e) => setSelectedVersionNo(Number(e.target.value))}
                 className="w-full border rounded-lg px-3 py-2 text-sm"
               >
                 {(versions || []).map((v) => (
-                  <option key={v.id ?? v.version_number} value={String(v.version_number)}>
-                    {v.version_number}. {v.version_name}{v.is_current ? ' (current)' : ''}
+                  <option key={v.id} value={v.version_number}>
+                    {v.version_number}. {v.version_name} {v.is_current ? '(current)' : ''}
                   </option>
                 ))}
               </select>
